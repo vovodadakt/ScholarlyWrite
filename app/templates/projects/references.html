@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% block title %}文献管理 - {{ project.title }} - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<div x-data="refManager()" x-init="init()" class="max-w-5xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-xl font-semibold">文献管理</h1>
+            <p class="text-sm mt-1" style="color:var(--muted)">
+                <a href="/projects/{{ project.id }}" style="color:var(--accent); text-decoration:none;">{{ project.title }}</a>
+                &middot; 共 <span x-text="refs.length"></span> 篇文献
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <select x-model="styleFilter" @change="renderBib()" class="text-xs px-2 py-1" style="background:var(--card); border:1px solid var(--border); color:var(--text);">
+                <option value="apa">APA 7th</option>
+                <option value="mla">MLA 9th</option>
+                <option value="chicago">Chicago (author-date)</option>
+                <option value="chicago-nb">Chicago (notes)</option>
+                <option value="gbt">GB/T 7714</option>
+                <option value="vancouver">Vancouver</option>
+                <option value="harvard">Harvard</option>
+                <option value="ieee">IEEE</option>
+                <option value="nature">Nature</option>
+                <option value="science">Science</option>
+            </select>
+            <button @click="showAddModal=true" class="btn-primary text-xs">添加文献</button>
+            <a href="/projects/{{ project.id }}" class="btn-secondary text-xs" style="text-decoration:none;">返回写作</a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+        <input type="text" x-model="searchText" placeholder="搜索文献..." class="input-field text-xs" style="max-width:240px; padding:4px 8px;">
+        <select x-model="typeFilter" class="text-xs px-2 py-1" style="background:var(--card); border:1px solid var(--border); color:var(--text);">
+            <option value="">全部类型</option>
+            <option value="article">期刊论文</option>
+            <option value="book">书籍</option>
+            <option value="inproceedings">会议论文</option>
+            <option value="phdthesis">学位论文</option>
+            <option value="techreport">技术报告</option>
+            <option value="preprint">预印本</option>
+        </select>
+        <span class="text-xs" style="color:var(--muted)" x-text="filteredRefs().length + ' 篇'"></span>
+        <span class="flex-1"></span>
+        <button @click="copyBib()" class="text-xs px-2 py-1" style="color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;">复制参考书目</button>
+        <button @click="downloadBibtex()" class="text-xs px-2 py-1" style="color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;">导出 BibTeX</button>
+    </div>
+
+    <!-- Reference List -->
+    <div class="space-y-2 mb-8">
+        <template x-for="(r, i) in filteredRefs()" :key="r.id">
+            <div class="card flex items-start gap-4" style="padding:12px 16px;">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-mono px-1.5 py-0.5" style="background:var(--hover-row); color:var(--accent); border-radius:3px;"
+                              x-text="typeLabel(r.pub_type)"></span>
+                        <span class="text-xs font-medium" style="color:var(--accent);" x-text="'@'+r.citation_key"></span>
+                    </div>
+                    <div class="text-sm font-medium leading-snug mb-1" x-text="r.title"></div>
+                    <div class="text-xs" style="color:var(--muted)">
+                        <span x-text="r.authors ? r.authors.join(', ') : ''"></span>
+                        <span x-show="r.year" x-text="' ('+r.year+')'"></span>
+                        <span x-show="r.journal" x-text="'. '+r.journal"></span>
+                        <span x-show="r.volume" x-text="', '+r.volume"></span>
+                        <span x-show="r.issue" x-text="'('+r.issue+')'"></span>
+                        <span x-show="r.pages" x-text="', '+r.pages"></span>
+                    </div>
+                    <div class="text-xs mt-1" style="color:var(--accent)" x-show="r.doi" x-text="'DOI: '+r.doi"></div>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <button @click="editRef(r)" class="text-xs px-2 py-1" style="color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;">编辑</button>
+                    <button @click="deleteRef(r.id)" class="text-xs px-2 py-1" style="color:var(--red); background:none; border:1px solid var(--red); cursor:pointer;">删除</button>
+                </div>
+            </div>
+        </template>
+        <div x-show="refs.length===0" class="text-center py-16">
+            <p class="text-sm" style="color:var(--muted)">暂无文献，点击「添加文献」开始</p>
+        </div>
+    </div>
+
+    <!-- Bibliography Preview -->
+    <div class="card mb-8" style="padding:16px 20px;" x-show="filteredRefs().length > 0">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">参考书目预览</h3>
+            <span class="text-xs" style="color:var(--muted)" x-text="styleLabel(styleFilter)"></span>
+        </div>
+        <pre class="text-xs" style="line-height:1.8; white-space:pre-wrap; color:var(--text); font-family:Georgia, 'Noto Serif SC', serif;" x-text="bibPreview"></pre>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div x-show="showAddModal || showEditModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="closeModals()">
+        <div class="card" style="width:620px; max-width:92vw; max-height:85vh; overflow-y:auto; padding:24px;">
+            <h3 class="text-base font-semibold mb-4" x-text="showEditModal ? '编辑文献' : '添加文献'"></h3>
+
+            <!-- Quick DOI import -->
+            <div class="mb-4" x-show="!showEditModal">
+                <div class="flex gap-2">
+                    <input type="text" x-model="doiInput" @keydown.enter="importDoi()" placeholder="粘贴 DOI 快速导入（如 10.1038/nature12345）" class="input-field flex-1" style="font-size:0.75rem; padding:5px 8px;">
+                    <button @click="importDoi()" class="btn-secondary text-xs" :disabled="doiLoading" x-text="doiLoading ? '获取中...' : 'DOI 导入'"></button>
+                </div>
+                <div class="mt-2 flex gap-2">
+                    <span class="text-xs" style="color:var(--muted)">或</span>
+                    <button @click="showBibtexInput=!showBibtexInput" class="text-xs" style="color:var(--accent); background:none; border:none; cursor:pointer;">粘贴 BibTeX 导入</button>
+                </div>
+                <div x-show="showBibtexInput" class="mt-2">
+                    <textarea x-model="bibtexInput" rows="5" placeholder="粘贴 BibTeX 条目..." class="input-field w-full" style="font-size:0.75rem; font-family:monospace;"></textarea>
+                    <button @click="importBibtex()" class="btn-secondary text-xs mt-2" :disabled="bibtexLoading" x-text="bibtexLoading ? '解析中...' : '解析导入'"></button>
+                </div>
+                <div x-show="importError" class="text-xs mt-2 px-3 py-2" style="color:var(--red); background:var(--error-bg);" x-text="importError"></div>
+            </div>
+
+            <div style="border-bottom:1px solid var(--border); margin:12px 0;" x-show="!showEditModal && (doiInput || showBibtexInput)"></div>
+
+            <!-- Form fields -->
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="col-span-2">
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">标题 *</label>
+                    <input type="text" x-model="form.title" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">作者（逗号分隔）</label>
+                    <input type="text" x-model="form.authorsStr" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">出版年</label>
+                    <input type="number" x-model="form.year" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">类型</label>
+                    <select x-model="form.pub_type" class="input-field w-full" style="font-size:0.8125rem;">
+                        <option value="article">期刊论文</option>
+                        <option value="book">书籍</option>
+                        <option value="inproceedings">会议论文</option>
+                        <option value="phdthesis">学位论文</option>
+                        <option value="techreport">技术报告</option>
+                        <option value="preprint">预印本</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">期刊/出版社</label>
+                    <input type="text" x-model="form.journal" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">DOI</label>
+                    <input type="text" x-model="form.doi" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">卷</label>
+                    <input type="text" x-model="form.volume" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">期</label>
+                    <input type="text" x-model="form.issue" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">页码</label>
+                    <input type="text" x-model="form.pages" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div>
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">Citation Key</label>
+                    <input type="text" x-model="form.citation_key" class="input-field w-full" style="font-size:0.8125rem; font-family:monospace;">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">链接</label>
+                    <input type="text" x-model="form.url" class="input-field w-full" style="font-size:0.8125rem;">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs mb-1 block" style="color:var(--muted)">摘要</label>
+                    <textarea x-model="form.abstract" rows="3" class="input-field w-full" style="font-size:0.75rem;"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5">
+                <button @click="closeModals()" class="btn-secondary text-xs">取消</button>
+                <button @click="saveRef()" class="btn-primary text-xs" x-text="showEditModal ? '保存修改' : '添加'"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refManager() {
+    var projectId = '{{ project.id }}';
+    return {
+        refs: [],
+        searchText: '',
+        typeFilter: '',
+        styleFilter: 'apa',
+        bibPreview: '',
+        showAddModal: false,
+        showEditModal: false,
+        editingRef: null,
+        form: {title:'', authorsStr:'', year:'', pub_type:'article', journal:'', doi:'', volume:'', issue:'', pages:'', citation_key:'', url:'', abstract:''},
+        doiInput: '',
+        doiLoading: false,
+        bibtexInput: '',
+        showBibtexInput: false,
+        bibtexLoading: false,
+        importError: '',
+
+        async init() {
+            await this.loadRefs();
+        },
+        async loadRefs() {
+            try {
+                var r = await fetch('/api/projects/'+projectId+'/references');
+                this.refs = await r.json();
+                this.renderBib();
+            } catch(e) { console.error(e); }
+        },
+        filteredRefs() {
+            var refs = this.refs;
+            if (this.searchText) {
+                var q = this.searchText.toLowerCase();
+                refs = refs.filter(function(r) {
+                    return (r.title||'').toLowerCase().indexOf(q)>=0
+                        || (r.authors||[]).join(' ').toLowerCase().indexOf(q)>=0
+                        || (r.citation_key||'').toLowerCase().indexOf(q)>=0
+                        || (r.doi||'').toLowerCase().indexOf(q)>=0;
+                });
+            }
+            if (this.typeFilter) {
+                refs = refs.filter(function(r) { return r.pub_type === this.typeFilter; }, this);
+            }
+            return refs;
+        },
+        async renderBib() {
+            if (this.refs.length === 0) { this.bibPreview = ''; return; }
+            try {
+                var r = await fetch('/api/projects/'+projectId+'/references/formatted?style='+this.styleFilter);
+                var d = await r.json();
+                this.bibPreview = d.formatted;
+            } catch(e) {}
+        },
+        typeLabel(t) {
+            var m = {article:'期刊论文',book:'书籍',inproceedings:'会议论文',phdthesis:'学位论文',techreport:'技术报告',preprint:'预印本'};
+            return m[t] || t;
+        },
+        styleLabel(s) {
+            var m = {apa:'APA 7th',mla:'MLA 9th',chicago:'Chicago', 'chicago-nb':'Chicago (Notes)',gbt:'GB/T 7714',vancouver:'Vancouver',harvard:'Harvard',ieee:'IEEE',nature:'Nature',science:'Science'};
+            return m[s] || s;
+        },
+        async copyBib() {
+            try { await navigator.clipboard.writeText(this.bibPreview); } catch(e) {}
+        },
+        async downloadBibtex() {
+            try {
+                var r = await fetch('/api/projects/'+projectId+'/references/export/bibtex');
+                var d = await r.json();
+                var blob = new Blob([d.bibtex], {type:'text/plain'});
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'references.bib';
+                a.click();
+            } catch(e) {}
+        },
+        resetForm() {
+            this.form = {title:'', authorsStr:'', year:'', pub_type:'article', journal:'', doi:'', volume:'', issue:'', pages:'', citation_key:'', url:'', abstract:''};
+        },
+        editRef(r) {
+            this.editingRef = r;
+            this.form = {
+                title: r.title||'',
+                authorsStr: (r.authors||[]).join(', '),
+                year: r.year||'',
+                pub_type: r.pub_type||'article',
+                journal: r.journal||'',
+                doi: r.doi||'',
+                volume: r.volume||'',
+                issue: r.issue||'',
+                pages: r.pages||'',
+                citation_key: r.citation_key||'',
+                url: r.url||'',
+                abstract: r.abstract||'',
+            };
+            this.showEditModal = true;
+        },
+        closeModals() {
+            this.showAddModal = false;
+            this.showEditModal = false;
+            this.editingRef = null;
+            this.doiInput = '';
+            this.bibtexInput = '';
+            this.showBibtexInput = false;
+            this.importError = '';
+            this.resetForm();
+        },
+        async saveRef() {
+            var authors = this.form.authorsStr.split(',').map(function(s){return s.trim();}).filter(Boolean);
+            var body = {
+                title: this.form.title,
+                authors: authors,
+                year: this.form.year ? parseInt(this.form.year) : null,
+                pub_type: this.form.pub_type,
+                journal: this.form.journal,
+                doi: this.form.doi,
+                volume: this.form.volume,
+                issue: this.form.issue,
+                pages: this.form.pages,
+                citation_key: this.form.citation_key,
+                url: this.form.url,
+                abstract: this.form.abstract,
+            };
+
+            try {
+                if (this.showEditModal && this.editingRef) {
+                    await fetch('/api/projects/'+projectId+'/references/'+this.editingRef.id, {
+                        method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+                    });
+                } else {
+                    var r = await fetch('/api/projects/'+projectId+'/references', {
+                        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+                    });
+                    var d = await r.json();
+                    if (!d.ok) { alert('添加失败'); return; }
+                }
+                await this.loadRefs();
+                this.closeModals();
+            } catch(e) { console.error(e); }
+        },
+        async deleteRef(refId) {
+            if (!confirm('确定删除这篇文献？')) return;
+            try {
+                await fetch('/api/projects/'+projectId+'/references/'+refId, {method:'DELETE'});
+                await this.loadRefs();
+            } catch(e) { console.error(e); }
+        },
+        async importDoi() {
+            var doi = this.doiInput.trim();
+            if (!doi) return;
+            this.doiLoading = true;
+            this.importError = '';
+            try {
+                var r = await fetch('/api/references/import/doi', {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({doi:doi})
+                });
+                if (!r.ok) { var e = await r.json(); this.importError = e.detail || '导入失败'; this.doiLoading = false; return; }
+                var d = await r.json();
+                if (d.ok && d.data) {
+                    var rd = d.data;
+                    this.form = {
+                        title: rd.title||'',
+                        authorsStr: (rd.authors||[]).join(', '),
+                        year: rd.year||'',
+                        pub_type: rd.pub_type||'article',
+                        journal: rd.journal||'',
+                        doi: rd.doi||doi,
+                        volume: rd.volume||'',
+                        issue: rd.issue||'',
+                        pages: rd.pages||'',
+                        citation_key: '',
+                        url: rd.url||'',
+                        abstract: rd.abstract||'',
+                    };
+                    this.showAddModal = true;
+                }
+            } catch(e) { this.importError = '网络错误'; }
+            this.doiLoading = false;
+        },
+        async importBibtex() {
+            var text = this.bibtexInput.trim();
+            if (!text) return;
+            this.bibtexLoading = true;
+            this.importError = '';
+            try {
+                var r = await fetch('/api/references/import/bibtex', {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({bibtex:text})
+                });
+                if (!r.ok) { var e = await r.json(); this.importError = e.detail || '解析失败'; this.bibtexLoading = false; return; }
+                var d = await r.json();
+                if (d.ok && d.data && d.data.length > 0) {
+                    // Batch save all
+                    var br = await fetch('/api/projects/'+projectId+'/references/batch-import', {
+                        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({references:d.data})
+                    });
+                    var bd = await br.json();
+                    if (bd.ok) {
+                        await this.loadRefs();
+                        this.closeModals();
+                    }
+                }
+            } catch(e) { this.importError = '网络错误'; }
+            this.bibtexLoading = false;
+        },
+    };
+}
+</script>
+{% endblock %}

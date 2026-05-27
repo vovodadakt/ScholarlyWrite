@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }} - ScholarlyWrite{% endblock %}
+
+{% block head %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" rel="stylesheet">
+<style>
+[x-cloak] { display: none !important; }
+main.max-w-4xl { max-width:96vw !important; padding:0 !important; }
+.detail-wrap { height:calc(100vh - 64px); display:flex; flex-direction:column; background:var(--bg); }
+/* Flow stepper */
+.flow-stepper { display:flex; align-items:center; justify-content:center; gap:0; padding:10px 20px; flex-shrink:0; background:var(--card); border-bottom:1px solid var(--border); }
+.flow-step { display:flex; align-items:center; gap:0; }
+.flow-step-node { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6875rem; font-weight:700; flex-shrink:0; border:2px solid var(--border); color:var(--muted); background:var(--bg); transition: all 0.2s; }
+.flow-step-node.current { border-color:var(--accent); background:var(--accent); color:#fff; }
+.flow-step-node.done { border-color:var(--green); background:var(--green); color:#fff; }
+.flow-step-label { font-size:0.75rem; margin-left:6px; color:var(--muted); white-space:nowrap; }
+.flow-step-label.current { color:var(--accent); font-weight:600; }
+.flow-step-label.done { color:var(--green); }
+.flow-step-line { width:32px; height:2px; background:var(--border); margin:0 10px; flex-shrink:0; }
+.flow-step-line.done { background:var(--green); }
+.flow-step a { text-decoration:none; color:inherit; display:flex; align-items:center; }
+.flow-step a:hover .flow-step-label { color:var(--accent); }
+.panel-left { width:280px; flex-shrink:0; display:flex; flex-direction:column; background:var(--card); border-right:1px solid var(--border); }
+.panel-right { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--bg); }
+.panel-head { padding:12px 16px; display:flex; align-items:center; gap:8px; flex-shrink:0; border-bottom:1px solid var(--border); font-size:0.8125rem; font-weight:600; }
+.panel-body { flex:1; overflow-y:auto; min-height:0; }
+.panel-body::-webkit-scrollbar { width:4px; }
+.panel-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.tab-content { display:flex; flex-direction:column; flex:1; min-height:0; }
+.ql-toolbar { border:none!important; border-bottom:1px solid var(--border)!important; border-radius:0!important; background:var(--bg)!important; font-family:var(--font-system)!important; }
+.ql-toolbar button { color:var(--muted)!important; }
+.ql-toolbar button:hover { color:var(--text)!important; }
+.ql-toolbar button.ql-active { color:var(--accent)!important; }
+.ql-toolbar .ql-stroke { stroke:var(--muted)!important; }
+.ql-toolbar .ql-fill { fill:var(--muted)!important; }
+.ql-toolbar button:hover .ql-stroke { stroke:var(--text)!important; }
+.ql-toolbar button:hover .ql-fill { fill:var(--text)!important; }
+.ql-toolbar button.ql-active .ql-stroke { stroke:var(--accent)!important; }
+.ql-toolbar button.ql-active .ql-fill { fill:var(--accent)!important; }
+.ql-container { border:none!important; border-radius:0!important; font-family:var(--font-editor)!important; font-size:16px!important; color:var(--text)!important; background:var(--card)!important; }
+.ql-editor { line-height:1.8!important; padding:20px 24px!important; min-height:500px; position:relative; }
+.ql-editor img[data-fig] { max-width:100%; height:auto; display:block; margin:12px auto; border-radius:4px; }
+.ql-editor.ql-blank::before { color:var(--muted)!important; font-style:normal!important; }
+.outline-node { padding:2px 0; }
+.outline-node .oi { font-size:0.8125rem; padding:5px 16px; cursor:pointer; display:flex; align-items:center; }
+.outline-node .oi:hover { background:var(--hover-row); }
+.outline-node .oi-sub { font-size:0.75rem; color:var(--muted); padding:4px 16px 4px 32px; cursor:pointer; display:flex; align-items:center; }
+.outline-node .oi-sub:hover { background:var(--hover-row); color:var(--text); }
+.oi-actions { margin-left:auto; display:none; gap:2px; }
+.oi:hover .oi-actions, .oi-sub:hover .oi-actions { display:flex; }
+.oi-actions button { font-size:0.625rem; padding:0 5px; border:none; cursor:pointer; color:var(--muted); background:none; }
+.oi-actions button:hover { color:var(--text); }
+.oi-actions button.del:hover { color:var(--red); }
+.ref-item { padding:8px 0; border-bottom:1px solid var(--border); cursor:pointer; }
+.ref-item:hover { opacity:0.7; }
+.ref-item:last-child { border-bottom:none; }
+/* Context menu */
+.ctx-menu { position:fixed; z-index:999; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:4px 0; min-width:160px; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
+.ctx-menu-item { padding:7px 14px; font-size:0.8125rem; cursor:pointer; color:var(--text); display:flex; align-items:center; gap:8px; }
+.ctx-menu-item:hover { background:var(--hover-row); }
+.ctx-menu-item .kbd { font-size:0.625rem; color:var(--muted); margin-left:auto; }
+.ctx-menu-divider { height:1px; background:var(--border); margin:4px 0; }
+/* Chat chips & slash */
+.chip-x:hover { color:var(--red)!important; }
+.slash-item:last-child { border-bottom:none!important; }
+/* Toolbar custom buttons — SVG icons */
+.ql-formula, .ql-table-btn, .ql-footnote-btn, .ql-ref-btn { position:relative; width:28px; height:24px; }
+.ql-formula svg, .ql-table-btn svg, .ql-footnote-btn svg, .ql-ref-btn svg { display:none; }
+.ql-formula::after { content:''; position:absolute; inset:0; background:currentColor; mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M4 4h6l2 7-2 9H4'/%3E%3Cpath d='M8 12h8'/%3E%3Cpath d='M14 4h6l-2 7 2 9h-6'/%3E%3C/svg%3E"); mask-size:18px; mask-position:center; mask-repeat:no-repeat; -webkit-mask-image:inherit; -webkit-mask-size:18px; -webkit-mask-position:center; opacity:0.6; }
+.ql-table-btn::after { content:''; position:absolute; inset:0; background:currentColor; mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cline x1='3' y1='9' x2='21' y2='9'/%3E%3Cline x1='3' y1='15' x2='21' y2='15'/%3E%3Cline x1='9' y1='3' x2='9' y2='21'/%3E%3C/svg%3E"); mask-size:16px; mask-position:center; mask-repeat:no-repeat; -webkit-mask-image:inherit; -webkit-mask-size:16px; -webkit-mask-position:center; opacity:0.6; }
+.ql-footnote-btn::after { content:''; position:absolute; inset:0; background:currentColor; mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cline x1='12' y1='4' x2='12' y2='14'/%3E%3Ccircle cx='12' cy='18' r='1.5'/%3E%3C/svg%3E"); mask-size:16px; mask-position:center; mask-repeat:no-repeat; -webkit-mask-image:inherit; -webkit-mask-size:16px; -webkit-mask-position:center; opacity:0.6; }
+.ql-ref-btn::after { content:''; position:absolute; inset:0; background:currentColor; mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E"); mask-size:16px; mask-position:center; mask-repeat:no-repeat; -webkit-mask-image:inherit; -webkit-mask-size:16px; -webkit-mask-position:center; opacity:0.6; }
+.ql-formula:hover::after, .ql-table-btn:hover::after, .ql-footnote-btn:hover::after, .ql-ref-btn:hover::after { opacity:1; }
+/* Academic three-line table */
+.scholar-table { border-collapse:collapse; width:100%; margin:12px 0; font-size:0.875rem; }
+.scholar-table thead { border-top:2px solid var(--text); border-bottom:1px solid var(--text); }
+.scholar-table tbody { border-bottom:2px solid var(--text); }
+.scholar-table th, .scholar-table td { padding:6px 10px; text-align:left; }
+.scholar-table th { font-weight:600; background:var(--hover-row); }
+.scholar-table td { background:var(--card); }
+/* Footnote */
+.footnote-ref { color:var(--accent); cursor:pointer; font-size:0.75rem; vertical-align:super; }
+.footnote-ref:hover { text-decoration:underline; }
+/* KaTeX rendering in editor */
+.ql-editor .katex { font-size:1.1em; }
+.ql-editor .katex-display { margin:1em 0; text-align:center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data='writingApp("{{ project.id }}", {{ outline.content | tojson if outline else 'null' }})' class="detail-wrap">
+    <!-- Flow stepper -->
+    <div class="flow-stepper" x-show="flowStep" x-cloak>
+        <template x-for="(step, idx) in flowSteps" :key="idx">
+            <div class="flex items-center">
+                <div class="flow-step">
+                    <a :href="step.href">
+                        <div class="flow-step-node" :class="{current: step.current, done: step.done}">
+                            <span x-show="step.done">&#10003;</span>
+                            <span x-show="!step.done" x-text="idx+1"></span>
+                        </div>
+                        <span class="flow-step-label" :class="{current: step.current, done: step.done}" x-text="step.label"></span>
+                    </a>
+                </div>
+                <div x-show="idx < flowSteps.length-1" class="flow-step-line" :class="{done: step.done}"></div>
+            </div>
+        </template>
+    </div>
+
+    <div style="display:flex; flex:1; min-height:0;">
+    <!-- LEFT: Outline -->
+    <div class="panel-left">
+        <div class="panel-head">
+            <div>
+                <div style="font-size:0.8125rem; font-weight:600;">大纲</div>
+                <div x-show="projMeta.template_name" class="text-xs mt-1" style="color:var(--accent); font-weight:400;" x-text="projMeta.template_name + (projMeta.journal_style ? ' &middot; ' + projMeta.journal_style.toUpperCase() : '')"></div>
+            </div>
+            <div class="flex gap-1" style="margin-left:auto;">
+                <button @click="addOutlineSection()" class="text-xs px-1.5" style="color:var(--muted); background:none; border:none; cursor:pointer;">+</button>
+                <button @click="generateOutline()" class="text-xs px-1.5" style="color:var(--accent); background:none; border:none; cursor:pointer;" :disabled="isGeneratingOutline">
+                    <span x-show="!isGeneratingOutline">AI</span>
+                    <span x-show="isGeneratingOutline">...</span>
+                </button>
+            </div>
+        </div>
+        <div class="panel-body">
+            <template x-if="outline && outline.sections && outline.sections.length">
+                <div>
+                    <template x-for="(sec, si) in outline.sections" :key="si">
+                        <div class="outline-node">
+                            <div class="oi" @click="selectChapter(sec.title, '', si)">
+                                <span x-text="sec.title" class="flex-1"></span>
+                                <span class="oi-actions">
+                                    <button @click.stop="addOutlineSubsection(si)">+</button>
+                                    <button @click.stop="deleteOutlineNode(si)" class="del">&times;</button>
+                                </span>
+                            </div>
+                            <template x-if="sec.subsections && sec.subsections.length">
+                                <div>
+                                    <template x-for="(sub, ssi) in sec.subsections" :key="ssi">
+                                        <div class="oi-sub" @click="selectChapter(sec.title+' — '+sub.title, '', si, ssi)">
+                                            <span x-text="sub.title" class="flex-1"></span>
+                                            <span class="oi-actions">
+                                                <button @click.stop="deleteOutlineNode(si,ssi)" class="del">&times;</button>
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            <div x-show="!outline || !outline.sections || !outline.sections.length" class="text-xs py-20 text-center" style="color:var(--muted)">
+                点击 AI 生成大纲<br>或手动添加章节
+            </div>
+        </div>
+        <!-- Project metadata footer -->
+        <div class="px-3 py-2" style="border-top:1px solid var(--border); flex-shrink:0;" x-cloak>
+            <div x-show="projMeta.word_count>0" class="text-xs" style="color:var(--muted);" x-text="'总字数: ~'+projMeta.word_count"></div>
+            <div x-show="projMeta.deadline" class="text-xs mt-1" style="color:var(--muted);" x-text="'截止日期: '+projMeta.deadline"></div>
+            <div x-show="projMeta.tags && projMeta.tags.length" class="flex flex-wrap gap-1 mt-1">
+                <template x-for="t in projMeta.tags" :key="t">
+                    <span class="text-xs px-1.5 py-0.5" style="background:var(--hover-row); color:var(--muted);" x-text="t"></span>
+                </template>
+            </div>
+        </div>
+        <!-- Nav links -->
+        <div class="px-3 py-2" style="flex-shrink:0;">
+            <a :href="'/projects/'+projectId+'/data'" class="btn-secondary text-xs" style="display:block; text-align:center; text-decoration:none; margin-bottom:4px;">数据分析</a>
+            <a :href="'/projects/'+projectId+'/experiments'" class="btn-secondary text-xs" style="display:block; text-align:center; text-decoration:none; margin-bottom:4px;">实验手册</a>
+            <a :href="'/projects/'+projectId+'/references'" class="btn-secondary text-xs" style="display:block; text-align:center; text-decoration:none; margin-bottom:4px;">文献管理</a>
+            <a :href="'/projects/'+projectId+'/submission-checklist'" class="btn-secondary text-xs" style="display:block; text-align:center; text-decoration:none; margin-bottom:4px;">投稿检查</a>
+            <a :href="'/projects/'+projectId+'/latex'" class="btn-secondary text-xs" style="display:block; text-align:center; text-decoration:none; margin-bottom:4px;">LaTeX 编辑</a>
+            <div class="px-3 py-2 mb-1" style="border-top:1px solid var(--border);">
+                <div class="text-xs mb-1" style="color:var(--muted)">期刊格式</div>
+                <select @change="updateJournalStyle($event.target.value)" class="input-field text-xs w-full" style="padding:3px 6px;">
+                    <option value="general" :selected="journalStyle==='general'">通用学术</option>
+                    <option value="nature" :selected="journalStyle==='nature'">Nature</option>
+                    <option value="science" :selected="journalStyle==='science'">Science</option>
+                    <option value="ieee" :selected="journalStyle==='ieee'">IEEE</option>
+                    <option value="apa" :selected="journalStyle==='apa'">APA 7th</option>
+                    <option value="gbt" :selected="journalStyle==='gbt'">GB/T 7714</option>
+                    <option value="mla" :selected="journalStyle==='mla'">MLA 9th</option>
+                    <option value="chicago" :selected="journalStyle==='chicago'">Chicago</option>
+                    <option value="vancouver" :selected="journalStyle==='vancouver'">Vancouver</option>
+                    <option value="harvard" :selected="journalStyle==='harvard'">Harvard</option>
+                </select>
+            </div>
+            <div class="flex gap-2 items-center px-3 mb-2">
+                <button @click="generateCoverLetter()" class="btn-primary text-xs" style="flex:1;">封面信</button>
+                <button @click="deleteProject()" class="btn-danger text-xs" style="flex:1;">删除</button>
+            </div>
+            <div class="px-3" style="position:relative;">
+                <button @click="showExport=!showExport" class="btn-primary text-xs" style="width:100%;">导出</button>
+                <div x-show="showExport" @click.away="showExport=false" x-cloak class="card" style="position:absolute; bottom:110%; left:8px; right:8px; padding:6px; z-index:50; display:flex; flex-direction:column; gap:3px; border:1px solid var(--border); box-shadow:0 4px 12px rgba(0,0,0,0.12);">
+                    <button @click="exportDocx();showExport=false" class="text-xs py-2 px-3 rounded" style="background:transparent; border:1px solid var(--border); cursor:pointer; color:var(--text); text-align:left; transition:background 0.15s;" onmouseenter="this.style.background='var(--hover-row)'" onmouseleave="this.style.background='transparent'">Word (.docx)</button>
+                    <button @click="exportPdf();showExport=false" class="text-xs py-2 px-3 rounded" style="background:transparent; border:1px solid var(--border); cursor:pointer; color:var(--text); text-align:left; transition:background 0.15s;" onmouseenter="this.style.background='var(--hover-row)'" onmouseleave="this.style.background='transparent'">PDF (.pdf)</button>
+                    <button @click="exportLatex();showExport=false" class="text-xs py-2 px-3 rounded" style="background:transparent; border:1px solid var(--border); cursor:pointer; color:var(--text); text-align:left; transition:background 0.15s;" onmouseenter="this.style.background='var(--hover-row)'" onmouseleave="this.style.background='transparent'">LaTeX (.tex)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CENTER: Editor -->
+    <div class="panel-right" style="border-right:1px solid var(--border);">
+        <div class="panel-head">
+            <span x-show="!activeChapterTitle" style="color:var(--muted)">选择左侧章节开始写作</span>
+            <span x-show="activeChapterTitle" x-text="activeChapterTitle" x-cloak></span>
+            <div class="flex gap-2" style="margin-left:auto;" x-show="activeChapterTitle" x-cloak>
+                <button @click="saveChapter()" class="btn-primary text-xs" :disabled="!emValue().trim()" style="padding:5px 12px; background:var(--green);">保存</button>
+            </div>
+        </div>
+        <div class="panel-body" style="display:flex;">
+            <div x-show="!activeChapterTitle" class="text-sm py-32 text-center" style="color:var(--muted); width:100%;">
+                点击左侧大纲开始写作
+            </div>
+            <div x-show="activeChapterTitle" x-cloak style="width:100%; display:flex; flex-direction:column; position:relative;">
+                <div id="editor-container" style="flex:1;"></div>
+                <!-- Experiment insert modal -->
+                <div x-show="showExpModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showExpModal=false">
+                    <div class="card" style="width:520px; max-width:90vw; max-height:70vh; overflow-y:auto;">
+                        <h3 class="text-sm font-semibold mb-3">插入实验数据</h3>
+                        <div x-show="experiments.length===0" class="text-xs py-8 text-center" style="color:var(--muted)">暂无实验记录</div>
+                        <template x-for="exp in experiments" :key="exp.id">
+                            <div class="flex items-start gap-3 text-xs py-2 px-2 cursor-pointer hover-row" style="border-bottom:1px solid var(--border);" @click="insertExperiment(exp)">
+                                <div class="flex-1">
+                                    <div class="font-medium" x-text="exp.title"></div>
+                                    <div class="mt-0.5" style="color:var(--muted)">
+                                        <span x-text="{'planned':'计划中','in_progress':'进行中','completed':'已完成','cancelled':'已取消'}[exp.status]||exp.status"></span>
+                                        <span x-show="exp.conclusion" x-text="' &middot; '+exp.conclusion.substring(0,80)"></span>
+                                    </div>
+                                </div>
+                                <button class="text-xs px-2 py-0.5" style="color:var(--accent); background:var(--hover-row); border:1px solid var(--accent);">插入</button>
+                            </div>
+                        </template>
+                        <div class="mt-3 text-right">
+                            <button @click="showExpModal=false" class="btn-secondary text-xs">关闭</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Citation insert modal -->
+                <div x-show="showRefModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showRefModal=false">
+                    <div class="card" style="width:520px; max-width:90vw; max-height:70vh; overflow-y:auto;">
+                        <h3 class="text-sm font-semibold mb-3">插入引用</h3>
+                        <div class="mb-2">
+                            <input type="text" x-model="refFilter" placeholder="筛选已保存文献..." class="input-field text-xs" style="padding:4px 8px;" @input="filterRefs()">
+                        </div>
+                        <div x-show="filteredRefs.length===0" class="text-xs py-8 text-center" style="color:var(--muted)">暂无已保存文献，请先在「文献检索」标签中添加</div>
+                        <template x-for="(r, ri) in filteredRefs" :key="r.id">
+                            <div class="flex items-start gap-3 text-xs py-2 px-2 cursor-pointer" style="border-bottom:1px solid var(--border);" @click="insertCitation(r, ri)">
+                                <span class="font-medium font-mono" style="color:var(--accent); min-width:28px;" x-text="'[@'+(r.citation_key||'ref')+']'"></span>
+                                <div class="flex-1">
+                                    <div class="font-medium" x-text="r.title"></div>
+                                    <div class="mt-0.5" style="color:var(--muted)">
+                                        <span x-text="(r.authors&&r.authors[0]?r.authors[0].split(' ').pop():'') + (r.year?' ('+r.year+')':'')"></span>
+                                    </div>
+                                </div>
+                                <button class="text-xs px-2 py-0.5" style="color:var(--accent); background:var(--hover-row); border:1px solid var(--accent);">插入</button>
+                            </div>
+                        </template>
+                        <div class="mt-3 text-right">
+                            <button @click="showRefModal=false" class="btn-secondary text-xs">关闭</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Formula modal -->
+                <div x-show="showFormulaModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showFormulaModal=false">
+                    <div class="card" style="width:480px; max-width:90vw; padding:24px;">
+                        <h3 class="text-sm font-semibold mb-3">插入数学公式</h3>
+                        <div class="text-xs mb-2" style="color:var(--muted)">输入 LaTeX 公式（行内公式用 $...$，块级公式用 $$...$$）</div>
+                        <textarea id="formula-input" x-model="formulaText" @input="renderFormulaPreview()" @keydown.escape="showFormulaModal=false" rows="3" placeholder="E = mc^2" class="input-field w-full" style="font-size:0.875rem; font-family:monospace;"></textarea>
+                        <div x-show="formulaText" class="mt-3 p-3 text-sm" style="background:var(--bg); border-radius:6px; min-height:40px;" id="formula-preview"></div>
+                        <div class="flex justify-end gap-2 mt-4">
+                            <button @click="showFormulaModal=false; formulaText=''" class="btn-secondary text-xs">取消</button>
+                            <button @click="insertFormula()" class="btn-primary text-xs">插入</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Table modal -->
+                <div x-show="showTableModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showTableModal=false">
+                    <div class="card" style="width:420px; max-width:90vw; padding:24px;">
+                        <h3 class="text-sm font-semibold mb-3">插入表格</h3>
+                        <div class="flex gap-4 mb-4">
+                            <div><label class="text-xs mb-1 block" style="color:var(--muted)">行数</label><input type="number" x-model="tableRows" min="1" max="10" class="input-field" style="width:80px;"></div>
+                            <div><label class="text-xs mb-1 block" style="color:var(--muted)">列数</label><input type="number" x-model="tableCols" min="1" max="10" class="input-field" style="width:80px;"></div>
+                        </div>
+                        <!-- Preview grid -->
+                        <div class="mb-4 overflow-x-auto">
+                            <table class="scholar-table" style="width:100%; font-size:0.75rem;">
+                                <template x-for="r in parseInt(tableRows)">
+                                    <tr>
+                                        <template x-for="c in parseInt(tableCols)">
+                                            <td class="border px-2 py-1" style="border-color:var(--border);" x-text="' '"></td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </table>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button @click="showTableModal=false" class="btn-secondary text-xs">取消</button>
+                            <button @click="insertTable()" class="btn-primary text-xs">插入</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footnote modal -->
+                <div x-show="showFootnoteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showFootnoteModal=false">
+                    <div class="card" style="width:480px; max-width:90vw; padding:24px;">
+                        <h3 class="text-sm font-semibold mb-3">插入脚注</h3>
+                        <textarea id="footnote-input" x-model="footnoteText" @keydown.escape="showFootnoteModal=false" rows="3" placeholder="输入脚注内容..." class="input-field w-full" style="font-size:0.8125rem;"></textarea>
+                        <div class="flex justify-end gap-2 mt-4">
+                            <button @click="showFootnoteModal=false; footnoteText=''" class="btn-secondary text-xs">取消</button>
+                            <button @click="insertFootnote()" class="btn-primary text-xs">插入</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Cross-reference modal -->
+                <div x-show="showCrossrefModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showCrossrefModal=false">
+                    <div class="card" style="width:480px; max-width:90vw; max-height:70vh; overflow-y:auto; padding:24px;">
+                        <h3 class="text-sm font-semibold mb-3">插入交叉引用</h3>
+                        <div x-show="crossrefItems.length===0" class="text-xs py-8 text-center" style="color:var(--muted)">文档中暂无图表或公式。请先在编辑器中插入图片、表格或公式。</div>
+                        <template x-for="(item, i) in crossrefItems" :key="i">
+                            <div class="flex items-center gap-2 text-xs py-2 px-2 cursor-pointer" style="border-bottom:1px solid var(--border);" @click="insertCrossref(item)">
+                                <span class="font-medium px-1.5 py-0.5" style="color:var(--accent); background:var(--hover-row);" x-text="item.label"></span>
+                                <span style="color:var(--muted)" x-text="item.desc"></span>
+                            </div>
+                        </template>
+                        <div class="mt-3 text-right">
+                            <button @click="showCrossrefModal=false" class="btn-secondary text-xs">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div x-show="activeChapterTitle" x-cloak class="flex items-center gap-2 px-3 py-1" style="background:var(--bg); border-top:1px solid var(--border); height:28px;">
+            <span class="text-xs" style="color:var(--muted);">选中文字后右键 → 发送到 AI 助手，或直接在右侧输入指令</span>
+        </div>
+    </div>
+
+    <!-- RIGHT: Search / AI Assistant -->
+    <div class="panel-left" style="border-left:none;">
+        <!-- Tab bar -->
+        <div class="panel-head" style="padding:0;">
+            <button @click="rightTab='search'" class="text-xs px-4 py-3" style="border:none; cursor:pointer; font-family:inherit;"
+                    :style="{background: rightTab==='search' ? 'var(--card)' : 'transparent', color: rightTab==='search' ? 'var(--text)' : 'var(--muted)', borderBottom: rightTab==='search' ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: rightTab==='search' ? 600 : 400}">文献检索</button>
+            <button @click="rightTab='figures'" class="text-xs px-4 py-3" style="border:none; cursor:pointer; font-family:inherit;"
+                    :style="{background: rightTab==='figures' ? 'var(--card)' : 'transparent', color: rightTab==='figures' ? 'var(--text)' : 'var(--muted)', borderBottom: rightTab==='figures' ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: rightTab==='figures' ? 600 : 400}">配图</button>
+            <button @click="rightTab='ai'" class="text-xs px-4 py-3" style="border:none; cursor:pointer; font-family:inherit;"
+                    :style="{background: rightTab==='ai' ? 'var(--card)' : 'transparent', color: rightTab==='ai' ? 'var(--text)' : 'var(--muted)', borderBottom: rightTab==='ai' ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: rightTab==='ai' ? 600 : 400}">AI助手</button>
+        </div>
+
+        <!-- SEARCH TAB -->
+        <div x-show="rightTab==='search'" x-cloak class="tab-content">
+            <div style="padding:10px 12px; flex-shrink:0; border-bottom:1px solid var(--border);">
+                <div class="flex gap-1">
+                    <input type="text" x-model="searchQuery" @keydown.enter="doSearch()" placeholder="搜索关键词..." class="input-field" style="font-size:0.75rem; padding:5px 8px;">
+                    <button @click="doSearch()" style="font-size:0.75rem; padding:4px 10px; color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;" :disabled="isSearching">搜</button>
+                </div>
+            </div>
+            <div class="panel-body px-3">
+                <div x-show="isSearching" class="text-xs py-12 text-center" style="color:var(--muted)">搜索中...</div>
+                <div x-show="!isSearching && searchResults.length===0 && !searched" class="text-xs py-16 text-center" style="color:var(--muted); line-height:1.8">输入关键词<br>查找相关论文</div>
+                <div x-show="searchError" class="text-xs py-8 text-center" style="color:var(--red)" x-text="searchError"></div>
+                <template x-for="(r,i) in searchResults" :key="i">
+                    <div class="ref-item" style="display:flex; align-items:flex-start; gap:4px;">
+                        <div style="flex:1;" @click="insertRef(r)">
+                            <div class="text-xs font-medium leading-snug" x-text="r.title" style="margin-bottom:2px"></div>
+                            <div class="text-xs" style="color:var(--muted)">
+                                <span x-text="r.authors?r.authors.slice(0,2).join(', '):''"></span>
+                                <span x-show="r.year" x-text="' &middot; '+r.year"></span>
+                            </div>
+                        </div>
+                        <button @click.stop="saveRef(r)" class="text-xs px-1.5 py-0.5" style="color:var(--green); background:none; border:1px solid var(--green); cursor:pointer; flex-shrink:0; margin-top:2px;">添加</button>
+                    </div>
+                </template>
+            </div>
+            <div style="padding:10px 12px; flex-shrink:0; border-top:1px solid var(--border);" x-show="savedRefs.length > 0" x-cloak>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs" style="color:var(--muted)">已保存文献 &middot; <span x-text="savedRefs.length"></span></span>
+                    <button @click="copyFormattedRefs()" class="text-xs px-1.5 py-0.5" style="color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;">复制引用</button>
+                </div>
+                <template x-for="(r,i) in savedRefs" :key="i">
+                    <div class="flex items-center gap-1 text-xs py-1" style="border-bottom:1px solid var(--border);">
+                        <span class="flex-1 cursor-pointer" style="color:var(--muted)" x-text="(r.authors&&r.authors[0]?r.authors[0].split(' ').pop():'')+(r.year?' ('+r.year+') ':' ')+(r.title||'').substring(0,60)" x-cloak @click="insertCitation(r)"></span>
+                        <button @click="insertCitation(r)" class="text-xs px-1.5 py-0.5" style="color:var(--accent); background:none; border:1px solid var(--accent); cursor:pointer;">引用</button>
+                        <button @click="deleteRef(r.id)" class="text-xs px-1" style="color:var(--red); background:none; border:none; cursor:pointer;">&times;</button>
+                    </div>
+                </template>
+            </div>
+            <div style="padding:10px 12px; flex-shrink:0; border-top:1px solid var(--border);" x-show="flatChapters().length > 0" x-cloak>
+                <div class="text-xs mb-2" style="color:var(--muted)">已写章节 &middot; <span x-text="flatChapters().length"></span></div>
+                <template x-for="(ch,idx) in flatChapters()" :key="idx">
+                    <div @click="loadChapter(ch)" class="text-xs py-1 px-2 cursor-pointer rounded" style="color:var(--muted);"
+                         :style="{background: activeChapterTitle === ch.title ? 'var(--hover-row)' : 'transparent', paddingLeft: (ch.level||1)*10+'px'}"
+                         x-text="(ch.chapter_number ? ch.chapter_number+' ' : '') + ch.title"></div>
+                </template>
+            </div>
+            <div x-show="snapshots.length > 0" class="px-3 py-2" style="border-top:1px solid var(--border);" x-cloak>
+                <div class="text-xs mb-2" style="color:var(--muted)">历史版本 &middot; <span x-text="snapshots.length"></span></div>
+                <template x-for="(sn,idx) in snapshots" :key="idx">
+                    <div class="flex items-center gap-2 text-xs py-1">
+                        <span style="color:var(--muted)">v<span x-text="sn.version"></span></span>
+                        <span class="flex-1" style="color:var(--muted)" x-text="sn.content_preview"></span>
+                        <button @click="restoreSnapshot(sn.id)" class="text-xs px-1.5 py-0.5" style="color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;">恢复</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- FIGURES TAB -->
+        <div x-show="rightTab==='figures'" x-cloak class="tab-content">
+            <div style="padding:10px 12px; flex-shrink:0; border-bottom:1px solid var(--border);">
+                <form @submit.prevent="uploadFigure()" enctype="multipart/form-data">
+                    <div class="text-xs mb-2" style="color:var(--muted);">上传配图</div>
+                    <label for="fig-file" style="display:block; border:2px dashed var(--border); border-radius:8px; padding:12px; text-align:center; cursor:pointer; transition:all 0.15s; margin-bottom:8px;"
+                           onmouseenter="this.style.borderColor='var(--accent)'; this.style.background='var(--hover-row)';"
+                           onmouseleave="this.style.borderColor='var(--border)'; this.style.background='transparent';">
+                        <img x-show="figPreview" :src="figPreview" style="max-width:100%; max-height:140px; margin:0 auto 6px; border-radius:4px; display:block;">
+                        <div x-show="!figPreview" style="font-size:1.25rem; color:var(--muted); margin-bottom:4px;">+</div>
+                        <div class="text-xs" style="color:var(--muted);" x-show="!figPreview">点击选择配图</div>
+                        <div class="text-xs" style="color:var(--muted);" x-show="figPreview" x-text="figFileName || ''"></div>
+                        <div class="text-xs mt-1" style="color:var(--muted); font-size:0.625rem;" x-show="!figPreview">PNG, JPG, GIF, SVG, WebP</div>
+                        <input type="file" id="fig-file" accept=".png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.tiff,.tif" style="display:none;" @change="previewFigure()">
+                    </label>
+                    <input type="text" id="fig-caption" placeholder="图片说明（可选）" class="input-field text-xs mb-2" style="padding:4px 8px;">
+                    <button type="submit" class="btn-primary text-xs" style="width:100%; padding:6px;" :disabled="figUploading">
+                        <span x-show="!figUploading">上传</span><span x-show="figUploading">上传中...</span>
+                    </button>
+                </form>
+            </div>
+            <div class="panel-body px-3">
+                <div x-show="figures.length===0" class="text-xs py-16 text-center" style="color:var(--muted); line-height:1.8">上传配图后，可一键<br>插入图片到编辑器</div>
+                <template x-for="(f, fi) in figures" :key="f.id">
+                    <div class="text-xs py-2" style="border-bottom:1px solid var(--border);">
+                        <div class="font-medium" x-text="'[图' + f.figure_number + '] ' + (f.caption || f.filename)"></div>
+                        <div class="mt-0.5" style="color:var(--muted)" x-text="f.filename"></div>
+                        <div class="flex items-center gap-1 mt-1.5">
+                            <span class="text-xs mr-1" style="color:var(--muted);">宽度:</span>
+                            <button @click="f._w='30%'" class="text-xs px-1.5 py-0.5 rounded"
+                                    :style="{background:f._w==='30%'?'var(--accent)':'var(--hover-row)', color:f._w==='30%'?'#fff':'var(--muted)', border:'none', cursor:'pointer'}">S</button>
+                            <button @click="f._w='60%'" class="text-xs px-1.5 py-0.5 rounded"
+                                    :style="{background:f._w==='60%'?'var(--accent)':'var(--hover-row)', color:f._w==='60%'?'#fff':'var(--muted)', border:'none', cursor:'pointer'}">M</button>
+                            <button @click="f._w='100%'" class="text-xs px-1.5 py-0.5 rounded"
+                                    :style="{background:(!f._w||f._w==='100%')?'var(--accent)':'var(--hover-row)', color:(!f._w||f._w==='100%')?'#fff':'var(--muted)', border:'none', cursor:'pointer'}">L</button>
+                            <button @click="insertFigurePlaceholder(f)" class="text-xs px-2 py-0.5 ml-auto" style="color:var(--accent); background:var(--hover-row); border:1px solid var(--accent); cursor:pointer;">插入</button>
+                            <button @click="deleteFigure(f.id)" class="text-xs px-1.5 py-0.5" style="color:var(--red); background:none; border:none; cursor:pointer;">&times;</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- AI ASSISTANT TAB -->
+        <div x-show="rightTab==='ai'" x-cloak class="tab-content">
+            <!-- Selection info -->
+            <div class="px-2 py-2 text-xs" style="border-bottom:1px solid var(--border); flex-shrink:0; color:var(--muted);" x-show="selInfo.text">
+                <span x-text="selInfo.text"></span>
+                <span x-show="selInfo.paras" x-text="' &middot; 第'+selInfo.paras+'段'"></span>
+                <span x-show="selInfo.lines" x-text="' 第'+selInfo.lines+'行'"></span>
+            </div>
+            <!-- Chat messages -->
+            <div class="panel-body px-3" id="ai-chat-scroll">
+                <div x-show="aiMessages.length===0 && !aiStreaming" class="text-xs py-16 text-center" style="color:var(--muted); line-height:1.8">
+                    选中文字后右键发送给AI，<br>或直接在下方输入指令
+                </div>
+                <template x-for="(m,idx) in aiMessages" :key="idx">
+                    <div class="mb-3">
+                        <div class="text-xs mb-1" style="color:var(--accent); font-weight:500;" x-text="m.role==='user' ? '你' : 'AI'"></div>
+                        <div class="text-xs" style="line-height:1.6; white-space:pre-wrap;" x-text="m.content"></div>
+                    </div>
+                </template>
+                <div x-show="aiStreaming" class="mb-3">
+                    <div class="text-xs mb-1" style="color:var(--accent); font-weight:500;">AI</div>
+                    <div class="text-xs" style="line-height:1.6; white-space:pre-wrap;" x-text="aiStreamContent"></div>
+                </div>
+            </div>
+            <!-- Chat input -->
+            <div style="padding:6px 8px; flex-shrink:0; border-top:1px solid var(--border);">
+                <!-- Context chips -->
+                <div class="flex flex-wrap gap-1 mb-1" x-show="aiChips.length>0" x-cloak>
+                    <template x-for="(chip, ci) in aiChips" :key="ci">
+                        <span class="text-xs px-2 py-0.5 flex items-center gap-1" style="background:var(--hover-row); border:1px solid var(--border); border-radius:12px; color:var(--text); max-width:100%;">
+                            <span class="truncate" style="max-width:140px;" x-text="chip.label"></span>
+                            <button @click="removeChip(ci)" class="text-xs flex-shrink-0" style="color:var(--muted); background:none; border:none; cursor:pointer; padding:0; line-height:1;" title="移除上下文">&times;</button>
+                        </span>
+                    </template>
+                </div>
+                <!-- Slash command dropdown -->
+                <div x-show="showSlash" x-cloak class="mb-1" style="background:var(--card); border:1px solid var(--border); border-radius:6px; max-height:180px; overflow-y:auto;">
+                    <template x-for="sc in slashCommands.filter(function(c){ return !slashFilter||c.cmd.indexOf(slashFilter)>-1 })" :key="sc.cmd">
+                        <div @click="applySlash(sc)" class="flex items-center gap-2 text-xs px-3 py-2 cursor-pointer" style="border-bottom:1px solid var(--border);"
+                             onmouseenter="this.style.background='var(--hover-row)'" onmouseleave="this.style.background='transparent'">
+                            <span x-text="sc.icon" style="font-size:0.875rem;"></span>
+                            <div>
+                                <div class="font-medium" x-text="'/'+sc.cmd" style="color:var(--text);"></div>
+                                <div x-text="sc.desc" style="color:var(--muted); font-size:0.625rem;"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div class="flex gap-1">
+                    <textarea x-model="aiInput" @keydown.enter.prevent="aiSend()" @keydown.shift.enter.prevent="aiInput+='\n'"
+                              @input="detectSlash()"
+                              placeholder="输入指令，或 / 选择快捷命令..."
+                              rows="2" :disabled="aiStreaming"
+                              style="flex:1; border:1px solid var(--border); padding:8px; font-size:0.75rem; font-family:var(--font-system); color:var(--text); background:var(--bg); outline:none; resize:none; border-radius:4px;"></textarea>
+                    <button @click="aiSend()" :disabled="aiStreaming || (!aiInput.trim() && aiChips.length===0)"
+                            class="text-xs px-3" style="background:var(--accent); color:#fff; border:none; cursor:pointer; border-radius:4px; white-space:nowrap;">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div><!-- end flex wrapper -->
+
+    <!-- Context menu -->
+    <div x-show="ctxMenu.show" x-cloak class="ctx-menu" :style="'left:'+ctxMenu.x+'px; top:'+ctxMenu.y+'px;'" @click.outside="ctxMenu.show=false">
+        <div class="ctx-menu-item" @click="ctxSendToAI()">
+            发送选中内容到 AI 助手
+            <span class="kbd">Enter</span>
+        </div>
+        <div class="ctx-menu-divider"></div>
+        <div class="ctx-menu-item" @click="ctxMenu.show=false; showRefModal=true; filteredRefs=savedRefs;">
+            插入文献引用 [@key]
+        </div>
+        <div class="ctx-menu-item" @click="ctxMenu.show=false; showCrossrefModal=true; buildCrossrefList();">
+            插入交叉引用
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+var quill = null;
+function initQuill(app) {
+    if (quill) return;
+    var c = document.getElementById('editor-container');
+    if (!c) return;
+    c.innerHTML = '';
+    try { Quill.import('formats/formula'); } catch(e) {}
+    try {
+    quill = new Quill('#editor-container', {
+        theme: 'snow',
+        placeholder: '开始写作...',
+        modules: {
+            toolbar: {
+                container: [['bold','italic','underline','strike'],[{'header':1},{'header':2},{'header':3}],[{'list':'ordered'},{'list':'bullet'}],['blockquote','code-block'],['link','formula','table-btn','footnote-btn','ref-btn'],['clean']],
+                handlers: {
+                    'formula': function() { app.showFormulaModal = true; setTimeout(function(){ var inp=document.getElementById('formula-input'); if(inp) inp.focus(); }, 50); },
+                    'table-btn': function() { app.showTableModal = true; },
+                    'footnote-btn': function() { app.showFootnoteModal = true; setTimeout(function(){ var inp=document.getElementById('footnote-input'); if(inp) inp.focus(); }, 50); },
+                    'ref-btn': function() { app.showRefModal = true; app.filteredRefs = app.savedRefs; },
+                }
+            }
+        }
+    });
+    quill.on('selection-change', function(range) {
+        if (range && range.length > 0) {
+            window.__savedRange = range;
+            window.__savedText = quill.getText(range.index, range.length);
+            var before = quill.getText(0, range.index);
+            var lines = before.split('\n');
+            var paraCount = 1;
+            for (var i = 0; i < lines.length; i++) { if (lines[i].trim() !== '') paraCount++; }
+            if (lines.length === 1 && lines[0].trim() === '') paraCount = 1;
+            app.selInfo = {text: '已选中 ' + range.length + ' 字', paras: '' + paraCount, lines: '' + lines.length};
+        }
+    });
+    quill.root.addEventListener('contextmenu', function(e) {
+        var sel = quill.getSelection();
+        if (sel && sel.length > 0) {
+            e.preventDefault();
+            app.ctxMenu = {show: true, x: e.clientX, y: e.clientY};
+        }
+    });
+    } catch(e) { console.error('Quill init error:', e); quill = null; }
+}
+
+function writingApp(projectId, initialOutline) {
+    var s = this;
+    return {
+        projectId:projectId, outline:initialOutline||{sections:[]},
+        projMeta: {{ proj_meta | tojson | safe }},
+        activeChapterTitle:null, activeSectionIndex:null, activeSubIndex:null, chapterContext:'',
+        isGeneratingOutline:false, showExport:false, saveMessage:'',
+        chapters:{{ chapters | tojson | safe }},
+        snapshots:[],
+        searchQuery:'', searchResults:[], searchError:'', isSearching:false, searched:false, savedRefs:[],
+        showExpModal:false, experiments:[],
+        showRefModal:false, refFilter:'', filteredRefs:[],
+        showFormulaModal:false, formulaText:'',
+        showTableModal:false, tableRows:3, tableCols:3,
+        showFootnoteModal:false, footnoteText:'',
+        showCrossrefModal:false, crossrefItems:[],
+        journalStyle: '{{ project.journal_style or "general" }}',
+        figures:[], figUploading:false, figPreview:'', figFileName:'',
+        rightTab:'search', aiMessages:[], aiInput:'', aiStreaming:false, aiStreamContent:'', aiThinking:'',
+        aiChips:[], showSlash:false, slashFilter:'',
+        slashCommands:[
+            {cmd:'润色', icon:'✨', desc:'润色选中文字，提升表达', prompt:'请润色以下文字，提升学术表达的流畅度和专业性：'},
+            {cmd:'总结', icon:'📝', desc:'总结选中内容的核心观点', prompt:'请总结以下内容的核心观点：'},
+            {cmd:'翻译', icon:'🌐', desc:'翻译为英文', prompt:'请将以下文字翻译为英文学术英语：'},
+            {cmd:'续写', icon:'➡️', desc:'根据上文续写下一段', prompt:'请根据以下内容，续写下一段：'},
+            {cmd:'扩写', icon:'📖', desc:'扩展内容，增加细节', prompt:'请扩展以下内容，增加更多细节和论证：'},
+            {cmd:'缩写', icon:'📄', desc:'精简内容，保留要点', prompt:'请精简以下内容，保留核心要点：'},
+            {cmd:'学术化', icon:'🎓', desc:'改为正式学术风格', prompt:'请将以下文字改写为正式学术风格：'},
+            {cmd:'核查', icon:'🔍', desc:'检查逻辑和事实错误', prompt:'请检查以下内容是否存在逻辑漏洞或事实错误：'}
+        ],
+        ctxMenu:{show:false, x:0, y:0},
+        selInfo:{text:'', paras:'', lines:''},
+        get flowStep(){ var o=this.outline; var ch=this.chapters; if(ch && Array.isArray(ch) && ch.length>0) return 'writing'; if(o && o.sections && o.sections.length>0) return 'outline_ready'; return 'ideation'; },
+        flowSteps: [
+            {key:'template', label:{{ (project.template_name if project.template_name else '模板') | tojson | safe }}, href:'/templates', done:true, current:false},
+            {key:'ideation', label:'灵感对话', href:'/projects/{{ project.id }}/ideation', done:false, current:false},
+            {key:'outline', label:'大纲编辑', href:'/projects/{{ project.id }}/outline', done:false, current:false},
+            {key:'writing', label:'逐章写作', href:'#', done:false, current:false},
+            {key:'submission', label:'投稿', href:'/projects/{{ project.id }}/submission-checklist', done:false, current:false}
+        ],
+
+        init(){ var s=this; s.updateFlow(); s.$nextTick(function(){ initQuill(s); }); s.loadSavedRefs(); s.loadFigures(); },
+        updateFlow(){ var step=this.flowStep; this.flowSteps=this.flowSteps.map(function(s){ s.done=false; s.current=false; if(s.key==='template') s.done=true; if(s.key===step) s.current=true; if(s.key==='ideation' && (step==='outline_ready'||step==='writing')) s.done=true; if(s.key==='outline' && (step==='outline_ready'||step==='writing')) s.done=true; if(s.key==='writing' && step==='outline_ready') s.current=true; return s; }); },
+        // Editor helpers
+        emValue(){ return quill ? quill.root.innerHTML : ''; },
+        emSet(v){ if(quill){ quill.root.innerHTML = v || ''; this.renderFormulas(); } },
+        emAppend(t){ if(quill){ var p = quill.getLength()-1; quill.insertText(p, t); } },
+        getSelectedText(){ if(!quill) return ''; var r = quill.getSelection(); if(r && r.length > 0) return quill.getText(r.index, r.length); if(window.__savedRange && window.__savedRange.length > 0) return window.__savedText || ''; return ''; },
+        replaceSelected(newText){ if(!quill) return; var r = quill.getSelection() || window.__savedRange; if(!r) { var p = quill.getLength()-1; quill.insertText(p, newText); return; } quill.deleteText(r.index, r.length); quill.insertText(r.index, newText); window.__savedRange=null; window.__savedText=''; },
+
+        // AI Chat
+        ctxSendToAI(){ var s=this; var txt=s.getSelectedText(); if(!txt.trim()){ alert('请先选中文字'); return; } var preview=txt.substring(0,30)+(txt.length>30?'…':''); s.aiChips.push({label:'选中: '+preview, content:txt}); s.rightTab='ai'; s.ctxMenu.show=false; s.$nextTick(function(){ var el=document.getElementById('ai-chat-scroll'); if(el) el.scrollTop=el.scrollHeight; }); },
+        removeChip(ci){ this.aiChips.splice(ci,1); },
+        detectSlash(){ var s=this; var v=s.aiInput; var lastSlash=v.lastIndexOf('/'); if(lastSlash>=0&&(lastSlash===0||v[lastSlash-1]===' '||v[lastSlash-1]==='\n')){ var after=v.substring(lastSlash+1); if(after.indexOf(' ')===-1&&after.indexOf('\n')===-1){ s.slashFilter=after; s.showSlash=true; return; } } s.showSlash=false; },
+        applySlash(sc){ var s=this; var v=s.aiInput; var lastSlash=v.lastIndexOf('/'); var before=v.substring(0,lastSlash); s.aiInput=before+sc.prompt; s.showSlash=false; s.$nextTick(function(){ var ta=s.$el.querySelector('textarea'); if(ta) ta.focus(); }); },
+        async aiSend(){ var s=this; var txt=s.aiInput.trim(); if((!txt && s.aiChips.length===0) || s.aiStreaming) return; var ctxParts=[]; if(s.outline && s.outline.sections && s.outline.sections.length>0){ var ol='当前大纲：\n'; for(var i=0;i<s.outline.sections.length;i++){ var sec=s.outline.sections[i]; ol+=(i+1)+'. '+sec.title+'\n'; if(sec.subsections){ for(var j=0;j<sec.subsections.length;j++){ ol+='  '+(i+1)+'.'+(j+1)+' '+sec.subsections[j].title+'\n'; } } } ctxParts.push(ol); } var cur=s.emValue(); if(cur.trim()){ var div=document.createElement('div'); div.innerHTML=cur; var t2=(div.textContent||div.innerText||'').trim(); if(t2) ctxParts.push('当前章节内容：\n'+t2.substring(0,2000)); } for(var ci=0;ci<s.aiChips.length;ci++){ ctxParts.push('用户选中的文字：\n'+s.aiChips[ci].content); } var ctxText=ctxParts.join('\n\n'); var userLabel=txt||(s.aiChips.length>0?'请对选中的文字进行处理':'…'); var fullMsg=ctxText?'[上下文]\n'+ctxText+'\n\n[指令]\n'+userLabel:userLabel; s.aiMessages.push({role:'user', content:userLabel}); s.aiInput=''; s.aiChips=[]; s.aiStreaming=true; s.aiStreamContent=''; var scrollEl=document.getElementById('ai-chat-scroll'); s.$nextTick(function(){ if(scrollEl) scrollEl.scrollTop=scrollEl.scrollHeight; }); try{ var resp=await fetch('/api/projects/'+s.projectId+'/chat?message='+encodeURIComponent(fullMsg)); if(!resp.ok){ s.aiMessages.push({role:'assistant', content:'请求失败: HTTP '+resp.status}); s.aiStreaming=false; return; } var reader=resp.body.getReader();var dec=new TextDecoder(),buf='';var full=''; while(true){var r=await reader.read();if(r.done)break;buf+=dec.decode(r.value,{stream:true});var lines=buf.split('\n');buf=lines.pop()||'';for(var i=0;i<lines.length;i++){if(lines[i].startsWith('data: ')){try{var d=JSON.parse(lines[i].slice(6));if(d.text){full+=d.text;s.aiStreamContent=full;} if(d.error){full=d.error;s.aiStreamContent=full;} s.$nextTick(function(){ if(scrollEl) scrollEl.scrollTop=scrollEl.scrollHeight; }); }catch(e){}}} } if(full){ s.aiMessages.push({role:'assistant', content:full}); }else{ s.aiMessages.push({role:'assistant', content:'AI 没有返回内容，请重试。'}); } }catch(e){ s.aiMessages.push({role:'assistant', content:'请求失败: '+e.message}); } s.aiStreamContent=''; s.aiStreaming=false; },
+        findChapter(title){ var list=this.chapters; if(!Array.isArray(list)) return null; for(var i=0;i<list.length;i++){ if(list[i].title===title) return list[i]; } return null; },
+        async ensureSaved(){ var s=this; if(!s.activeChapterTitle) return; if(!s.findChapter(s.activeChapterTitle)){ await s.saveChapter(); } },
+
+        // Outline
+        addOutlineSection(){ if(!this.outline)this.outline={sections:[]}; if(!this.outline.sections)this.outline.sections=[]; this.outline.sections.push({title:'新章节',subsections:[]}); this.saveOutline(); },
+        addOutlineSubsection(si){ if(!this.outline.sections[si].subsections)this.outline.sections[si].subsections=[]; this.outline.sections[si].subsections.push({title:'新小节'}); this.saveOutline(); },
+        deleteOutlineNode(si,ssi){ if(ssi===undefined)this.outline.sections.splice(si,1); else this.outline.sections[si].subsections.splice(ssi,1); this.saveOutline(); },
+        async saveOutline(){ if(!this.outline)return; await fetch('/api/projects/'+this.projectId+'/outline',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:this.outline})}); },
+        async generateOutline(){ this.isGeneratingOutline=true; try{var r=await fetch('/api/projects/'+this.projectId+'/outline/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'',description:''})}); if(r.ok){this.outline=await r.json();await this.saveOutline();} }catch(e){} this.isGeneratingOutline=false; },
+
+        // Chapter
+        selectChapter(title,ctx,si,ssi){ this.activeChapterTitle=title; this.activeSectionIndex=si; this.activeSubIndex=ssi; this.chapterContext=ctx||''; this.emSet(''); },
+        async saveChapter(){ var s=this; var c=s.emValue(); if(!c.trim())return; var ex=s.findChapter(s.activeChapterTitle); var o=s.activeSectionIndex!=null?s.activeSectionIndex:(Array.isArray(s.chapters)?s.chapters.length:0); var resp=await fetch('/api/projects/'+s.projectId+'/chapters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:s.activeChapterTitle,content:c,chapter_order:o})}); if(resp.ok){var r=await resp.json(); if(ex){ex.content=c;ex.status='ai_generated';}else{ if(!Array.isArray(s.chapters)) s.chapters=[]; s.chapters.push({id:r.id,title:s.activeChapterTitle,content:c,status:'ai_generated',chapter_order:o}); } s.updateWordCount(); } },
+        loadChapter(ch){ this.activeChapterTitle=ch.title; this.emSet(ch.content); this.loadSnapshots(ch.id); },
+        async loadSnapshots(cid){ var s=this; s.snapshots=[]; try{var r=await fetch('/api/projects/'+this.projectId+'/chapters/'+cid+'/snapshots');if(r.ok){s.snapshots=await r.json();} }catch(e){} },
+        async restoreSnapshot(sid){ var s=this; if(!confirm('确定恢复到此版本？'))return; var ch=s.findChapter(s.activeChapterTitle); if(!ch)return; try{var r=await fetch('/api/projects/'+s.projectId+'/chapters/'+ch.id+'/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({snapshot_id:sid})});if(r.ok){var d=await r.json();s.emSet(d.content);s.loadSnapshots(ch.id);} }catch(e){alert('恢复失败');} },
+        async doSearch(){ var q=this.searchQuery.trim(); if(!q)return; this.isSearching=true;this.searched=true;this.searchResults=[];this.searchError=''; try{var r=await fetch('/api/references/search?q='+encodeURIComponent(q)+'&limit=8');var d=await r.json();this.searchResults=d.results||[];this.searchError=d.error||'';}catch(e){this.searchError='搜索失败';} this.isSearching=false; },
+        insertRef(r){ var s=this; s.saveRef(r).then(function(){ var key=r.citation_key||'ref'; if(quill){ var range=quill.getSelection(); if(range) quill.insertText(range.index, '[@'+key+']'); else quill.insertText(quill.getLength()-1, '[@'+key+']'); } }); },
+        async loadSavedRefs(){ try{var r=await fetch('/api/projects/'+this.projectId+'/references');if(r.ok){this.savedRefs=await r.json();} }catch(e){} },
+        async loadExperiments(){ try{var r=await fetch('/api/projects/'+this.projectId+'/experiments/summaries');if(r.ok){this.experiments=await r.json();} }catch(e){} },
+        insertExperiment(exp){ this.showExpModal=false; var lines=['\n\n---','## 实验: '+exp.title,'- 状态: '+({'planned':'计划中','in_progress':'进行中','completed':'已完成','cancelled':'已取消'}[exp.status]||exp.status)]; if(exp.conclusion) lines.push('- 结论: '+exp.conclusion); lines.push(''); this.emAppend(lines.join('\n')+'\n'); },
+        updateWordCount(){ var txt=this.emValue(); var div=document.createElement('div'); div.innerHTML=txt; var text=div.textContent||div.innerText||''; var cnt=text.replace(/\s+/g,'').length; fetch('/api/projects/'+this.projectId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({word_count:cnt})}); },
+        async saveRef(r){ var ck=''; if(r.authors&&r.authors.length) ck=r.authors[0].split(' ').pop().toLowerCase(); if(ck&&r.year) ck+=r.year; if(!ck) ck=r.doi||'ref'; try{var resp=await fetch('/api/projects/'+this.projectId+'/references',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:r.title||'',authors:r.authors||[],year:r.year||null,journal:r.journal||'',doi:r.doi||'',url:r.url||'',abstract:r.abstract||'',citation_key:ck})});if(resp.ok){var d=await resp.json();r.id=d.id; r.citation_key=d.citation_key; this.savedRefs.push(r);} }catch(e){} },
+        async deleteRef(refId){ if(!confirm('删除此文献？'))return; try{await fetch('/api/projects/'+this.projectId+'/references/'+refId,{method:'DELETE'});this.savedRefs=this.savedRefs.filter(function(r){return r.id!==refId;}); }catch(e){} },
+        async copyFormattedRefs(){ try{var r=await fetch('/api/projects/'+this.projectId+'/references/formatted?style=apa');if(r.ok){var d=await r.json();if(d.formatted){await navigator.clipboard.writeText(d.formatted);alert('已复制到剪贴板 ('+d.count+' 条)');}} }catch(e){alert('复制失败');} },
+
+        flatChapters(){ var result=[]; function walk(nodes){ if(!nodes)return; for(var i=0;i<nodes.length;i++){ result.push(nodes[i]); if(nodes[i].children&&nodes[i].children.length) walk(nodes[i].children); } } walk(this.chapters); return result; },
+        exportDocx(){ var a=document.createElement('a'); a.href='/api/projects/'+this.projectId+'/export/docx'; a.target='_blank'; a.click(); },
+        exportPdf(){ var a=document.createElement('a'); a.href='/api/projects/'+this.projectId+'/export/pdf'; a.target='_blank'; a.click(); },
+        exportLatex(){ var a=document.createElement('a'); a.href='/api/projects/'+this.projectId+'/export/latex'; a.target='_blank'; a.click(); },
+        // Figures
+        async loadFigures(){ try{var r=await fetch('/api/projects/'+this.projectId+'/figures');if(r.ok){this.figures=await r.json();} }catch(e){} },
+        previewFigure(){ var s=this; var el=document.getElementById('fig-file'); var f=el.files[0]; if(!f) return; s.figFileName=f.name; var reader=new FileReader(); reader.onload=function(e){ s.figPreview=e.target.result; }; reader.readAsDataURL(f); },
+        async uploadFigure(){ var s=this; var fileEl=document.getElementById('fig-file'); var capEl=document.getElementById('fig-caption'); var file=fileEl.files[0]; if(!file) return; s.figUploading=true; var fd=new FormData(); fd.append('file',file); fd.append('caption',capEl.value||''); try{var r=await fetch('/api/projects/'+s.projectId+'/figures/upload',{method:'POST',body:fd}); if(r.ok){var f=await r.json(); s.figures.push(f); fileEl.value=''; capEl.value=''; s.figPreview=''; s.figFileName=''; }else{var e=await r.json(); alert(e.detail||'上传失败');} }catch(e){alert('上传失败');} s.figUploading=false; },
+        insertFigurePlaceholder(f){ if(!quill) return; var range=quill.getSelection(); var idx=range?range.index:quill.getLength()-1; var caption='图'+f.figure_number+(f.caption?' '+f.caption:''); var w=f._w||'100%'; quill.insertText(idx,'\n'); quill.insertEmbed(idx+1,'image','/static/'+f.storage_path); quill.insertText(idx+2,'\n'); quill.insertText(idx+3,caption); quill.insertText(idx+3+caption.length,'\n'); var imgs=quill.root.querySelectorAll('img:not([data-fig])'); var img=imgs[imgs.length-1]; if(img){ img.style.width=w; img.style.height='auto'; img.setAttribute('data-fig','1'); var p=img.closest('p'); if(p&&p.nextElementSibling&&p.nextElementSibling.tagName==='P'){ p.nextElementSibling.style.textAlign='center'; } } this.rightTab='search'; },
+        async deleteFigure(fid){ if(!confirm('删除此配图？'))return; await fetch('/api/projects/'+this.projectId+'/figures/'+fid,{method:'DELETE'}); this.figures=this.figures.filter(function(f){return f.id!==fid;}); },
+        // Citation insertion
+        filterRefs(){ var s=this; var q=s.refFilter.trim().toLowerCase(); if(!q){s.filteredRefs=s.savedRefs; return;} s.filteredRefs=s.savedRefs.filter(function(r){ return (r.title||'').toLowerCase().indexOf(q)>-1 || (r.authors||[]).join(' ').toLowerCase().indexOf(q)>-1; }); },
+        insertCitation(r, ri){ var key=r.citation_key||'ref'; if(quill){ var range=quill.getSelection(); if(range) quill.insertText(range.index, '[@'+key+']'); else quill.insertText(quill.getLength()-1, '[@'+key+']'); } this.showRefModal=false; this.refFilter=''; },
+        async deleteProject(){ if(!confirm('确定删除？'))return; await fetch('/api/projects/'+this.projectId,{method:'DELETE'}); window.location.href='/projects'; },
+        // ── Formula ──
+        renderFormulas(){ if(!quill) return; var formulas=quill.root.querySelectorAll('.ql-formula'); for(var i=0;i<formulas.length;i++){try{var f=formulas[i]; var v=f.getAttribute('data-value')||f.textContent||''; if(v&&typeof katex!=='undefined'){katex.render(v,f,{throwOnError:false,displayMode:false});} }catch(e){}} },
+        renderFormulaPreview(){ var inp=document.getElementById('formula-input'); var prev=document.getElementById('formula-preview'); if(!inp||!prev)return; var v=inp.value.trim(); if(!v){prev.innerHTML='';return;} try{var dm=v.startsWith('$$')&&v.endsWith('$$');var tex=dm?v.slice(2,-2):(v.startsWith('$')&&v.endsWith('$')?v.slice(1,-1):v); if(typeof katex!=='undefined'){katex.render(tex,prev,{throwOnError:false,displayMode:dm});} else{prev.textContent=v;} }catch(e){prev.textContent=v;} },
+        insertFormula(){ var t=this.formulaText.trim(); if(!t){this.showFormulaModal=false;return;} var tex=t; if(t.startsWith('$$')&&t.endsWith('$$')){tex=t.slice(2,-2).trim();}else if(t.startsWith('$')&&t.endsWith('$')){tex=t.slice(1,-1).trim();} if(quill){var r=quill.getSelection(); var idx=r?r.index:quill.getLength()-1; if(t.startsWith('$$')&&t.endsWith('$$')){quill.insertText(idx,'\n'); quill.insertEmbed(idx+1,'formula',tex); quill.insertText(idx+2,'\n'); quill.formatText(idx+1,1,{'formula':tex});}else{quill.insertEmbed(idx,'formula',tex); quill.formatText(idx,1,{'formula':tex});} setTimeout(this.renderFormulas.bind(this),100);} this.showFormulaModal=false; this.formulaText=''; },
+        // ── Table ──
+        insertTable(){ var rows=parseInt(this.tableRows)||3; var cols=parseInt(this.tableCols)||3; var h='<table class="scholar-table"><thead><tr>'; for(var c=0;c<cols;c++) h+='<th>&nbsp;</th>'; h+='</tr></thead><tbody>'; for(var r=0;r<rows-1;r++){h+='<tr>'; for(var c2=0;c2<cols;c2++) h+='<td>&nbsp;</td>'; h+='</tr>';} h+='</tbody></table><p>[表 N]</p>'; if(quill){var rg=quill.getSelection(); var ix=rg?rg.index:quill.getLength()-1; quill.clipboard.dangerouslyPasteHTML(ix,h);} this.showTableModal=false; this.tableRows=3; this.tableCols=3; },
+        // ── Footnote ──
+        insertFootnote(){ var t=this.footnoteText.trim(); if(!t){this.showFootnoteModal=false;return;} if(quill){var r=quill.getSelection(); var idx=r?r.index:quill.getLength()-1; var existing=quill.getText(); var count=(existing.match(/<sup data-footnote/g)||[]).length; var marker='<sup data-footnote="'+t.replace(/"/g,'&quot;')+'" class="footnote-ref">['+(count+1)+']</sup>'; quill.clipboard.dangerouslyPasteHTML(idx,marker);} this.showFootnoteModal=false; this.footnoteText=''; },
+        // ── Cross-reference ──
+        buildCrossrefList(){ var items=[]; if(!quill) {this.crossrefItems=items;return;} var html=quill.root.innerHTML; var figMatches=html.matchAll(/\[图\s*(\d+)\]/g); for(var m of figMatches){items.push({type:'figure',num:parseInt(m[1]),label:'图'+m[1],desc:'图片 '+m[1]});} var tblMatches=html.matchAll(/\[表\s*(\d+)\]/g); for(var m2 of tblMatches){items.push({type:'table',num:parseInt(m2[1]),label:'表'+m2[1],desc:'表格 '+m2[1]});} var eqMatches=html.matchAll(/\[式\s*(\d+)\]/g); for(var m3 of eqMatches){items.push({type:'equation',num:parseInt(m3[1]),label:'式('+m3[1]+')',desc:'公式 '+m3[1]});} this.crossrefItems=items; },
+        insertCrossref(item){ var ref='[参见 '+item.label+']'; if(quill){var r=quill.getSelection(); var idx=r?r.index:quill.getLength()-1; quill.insertText(idx,ref);} this.showCrossrefModal=false; },
+        // ── Journal & Submission ──
+        async updateJournalStyle(style){ this.journalStyle=style; try{await fetch('/api/projects/'+this.projectId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({journal_style:style})});}catch(e){} },
+        async generateCoverLetter(){ var style=this.journalStyle||'general'; var name={'nature':'Nature','science':'Science','ieee':'IEEE','apa':'APA 7th','gbt':'GB/T 7714','mla':'MLA 9th','chicago':'Chicago','vancouver':'Vancouver','harvard':'Harvard','general':'期刊'}[style]||style; try{var r=await fetch('/api/projects/'+this.projectId+'/cover-letter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({journal_name:name})}); if(r.ok){var blob=await r.blob(); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='cover_letter.docx'; a.click();} }catch(e){} },
+    };
+}
+</script>
+{% endblock %}

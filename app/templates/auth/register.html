@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}注册 - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12">
+    <h1 class="text-2xl font-semibold text-center mb-1">注册</h1>
+    <p class="text-center mb-2 text-sm" style="color:var(--muted)">创建 ScholarlyWrite 账号，开始 AI 辅助写作</p>
+
+    {% if error %}
+    <div class="mb-6 px-4 py-3 border text-sm" style="background:var(--error-bg); border-color:var(--error-border); color:var(--error-text); border-radius:6px;">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="card" style="padding:2rem;">
+        <form method="POST" action="/auth/register" class="space-y-5">
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">昵称</label>
+                <input type="text" name="display_name" required autocomplete="name" class="input-field">
+            </div>
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">邮箱</label>
+                <input type="email" name="email" required autocomplete="email" class="input-field">
+            </div>
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">密码</label>
+                <input type="password" name="password" required minlength="8" autocomplete="new-password" class="input-field">
+                <p class="text-xs mt-1" style="color:var(--muted)">不少于 8 个字符，建议使用字母和数字的组合</p>
+            </div>
+            <button type="submit" class="btn-primary w-full">注册</button>
+        </form>
+    </div>
+
+    <p class="text-center mt-6 text-sm" style="color:var(--muted)">
+        已有账号？ <a href="/auth/login" style="color:var(--accent); text-decoration:none; font-weight:500;">立即登录</a>
+    </p>
+</div>
+{% endblock %}

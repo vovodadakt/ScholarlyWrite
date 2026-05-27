@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}写作模板 - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-2">写作模板库</h1>
+<p class="text-sm mb-8" style="color:var(--muted)">选择内容结构 + 期刊格式，作为论文写作起点</p>
+
+<div x-data="templatePicker()">
+    <!-- Content Templates -->
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--muted)">内容模板 ({{ templates_list|length }})</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+        <template x-for="(t, idx) in contentTemplates" :key="idx">
+            <div class="card" :class="contentIdx === idx ? 'selected' : ''"
+                 @click="pickContent(idx)"
+                 style="cursor:pointer; padding:14px;"
+                 :style="contentIdx === idx ? 'border-color:var(--accent); background:var(--hover-row);' : ''">
+                <h3 class="text-sm font-medium mb-1" x-text="t.name"></h3>
+                <p class="text-xs" style="color:var(--muted)" x-text="t.desc"></p>
+                <div class="flex flex-wrap gap-1 mt-2">
+                    <template x-for="s in t.sections.slice(0,5)" :key="s">
+                        <span class="text-xs px-1.5 py-0.5" style="background:var(--bg); border:1px solid var(--border);" x-text="s"></span>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Journal Templates -->
+    <h2 class="text-sm font-semibold mb-3" style="color:var(--muted)">期刊格式 ({{ journal_templates|length }})</h2>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        <template x-for="(j, idx) in journalTemplates" :key="idx">
+            <div class="card" :class="journalIdx === idx ? 'selected' : ''"
+                 @click="pickJournal(idx)"
+                 style="cursor:pointer; padding:12px; text-align:center;"
+                 :style="journalIdx === idx ? 'border-color:var(--accent); background:var(--hover-row);' : ''">
+                <div class="text-sm font-medium" x-text="j.name"></div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)" x-text="j.desc"></div>
+            </div>
+        </template>
+    </div>
+
+    <div class="flex justify-center">
+        <button class="btn-primary" @click="create()" :disabled="contentIdx === null">
+            使用选中模板创建项目
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>.selected { border-color:var(--accent)!important; background:var(--hover-row); }</style>
+<script>
+function templatePicker() {
+    var cts = {{ templates_list | tojson | safe }};
+    var jts = {{ journal_templates | tojson | safe }};
+    return {
+        contentIdx: null,
+        journalIdx: null,
+        contentTemplates: cts,
+        journalTemplates: jts,
+
+        pickContent(idx) { this.contentIdx = idx; },
+        pickJournal(idx) { this.journalIdx = idx; },
+
+        async create() {
+            if (this.contentIdx === null) return;
+            var t = this.contentTemplates[this.contentIdx];
+            var j = this.journalIdx !== null ? this.journalTemplates[this.journalIdx] : null;
+            var resp = await fetch('/api/projects', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title: t.name + ' 论文',
+                    description: '模板: ' + t.name + (j ? ' | 期刊: ' + j.name : ''),
+                    template_name: t.name,
+                    journal_style: j ? j.style : 'general'
+                })
+            });
+            if (resp.ok) {
+                var data = await resp.json();
+                var outline = {
+                    title: t.name + ' 论文',
+                    sections: t.sections.map(function(s){ return {title: s, subsections: []}; })
+                };
+                await fetch('/api/projects/' + data.id + '/outline', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: outline})
+                });
+                window.location.href = '/projects/' + data.id + '/ideation';
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

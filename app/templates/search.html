@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}全局搜索 - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<h1 class="text-lg font-semibold mb-6">全局搜索</h1>
+
+<form class="mb-6">
+    <div class="flex gap-2">
+        <input type="text" name="q" value="{{ query }}" placeholder="搜索项目、章节、对话..." class="input-field" style="max-width:480px;">
+        <button type="submit" class="btn-primary">搜索</button>
+    </div>
+</form>
+
+{% if query %}
+<div class="space-y-6">
+    {% if results.projects %}
+    <div>
+        <h2 class="text-sm font-semibold mb-2" style="color:var(--muted)">项目 ({{ results.projects|length }})</h2>
+        {% for p in results.projects %}
+        <div class="py-2 px-3 mb-1" style="border:1px solid var(--border);">
+            <a href="/projects/{{ p.id }}" class="text-sm font-medium" style="color:var(--accent);">{{ p.title }}</a>
+            <p class="text-xs mt-0.5" style="color:var(--muted)">{{ p.description }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if results.chapters %}
+    <div>
+        <h2 class="text-sm font-semibold mb-2" style="color:var(--muted)">章节 ({{ results.chapters|length }})</h2>
+        {% for c in results.chapters %}
+        <div class="py-2 px-3 mb-1" style="border:1px solid var(--border);">
+            <a href="/projects/{{ c.project_id }}" class="text-sm" style="color:var(--accent);">{{ c.project_title }} &rsaquo; {{ c.title }}</a>
+            <p class="text-xs mt-0.5" style="color:var(--muted)">{{ c.preview }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if results.conversations %}
+    <div>
+        <h2 class="text-sm font-semibold mb-2" style="color:var(--muted)">灵感对话 ({{ results.conversations|length }})</h2>
+        {% for c in results.conversations %}
+        <div class="py-2 px-3 mb-1" style="border:1px solid var(--border);">
+            <a href="/projects/{{ c.project_id }}/ideation" class="text-sm" style="color:var(--accent);">{{ c.project_title }} &rsaquo; {{ '你' if c.role == 'user' else 'AI' }}</a>
+            <p class="text-xs mt-0.5" style="color:var(--muted)">{{ c.preview }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not results.projects and not results.chapters and not results.conversations %}
+    <p class="text-sm py-12 text-center" style="color:var(--muted)">未找到相关结果</p>
+    {% endif %}
+</div>
+{% else %}
+<p class="text-sm py-12 text-center" style="color:var(--muted)">输入关键词，跨项目搜索章节内容和灵感对话</p>
+{% endif %}
+{% endblock %}

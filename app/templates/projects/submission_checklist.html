@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}投稿检查清单 - {{ project.title }} - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<div x-data="checklistApp()" x-init="init()" class="max-w-3xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-xl font-semibold">投稿检查清单</h1>
+            <p class="text-sm mt-1" style="color:var(--muted)">
+                <a href="/projects/{{ project.id }}" style="color:var(--accent); text-decoration:none;">{{ project.title }}</a>
+                <span x-show="journalName" x-text="' &middot; ' + journalName"></span>
+            </p>
+        </div>
+        <a href="/projects/{{ project.id }}" class="btn-secondary text-xs" style="text-decoration:none;">返回写作</a>
+    </div>
+
+    <!-- Progress -->
+    <div class="card mb-6" style="padding:16px 20px;">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium">总体进度</span>
+            <span class="text-sm" style="color:var(--accent);" x-text="completedCount() + '/' + totalItems()"></span>
+        </div>
+        <div style="height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
+            <div :style="{width: (totalItems()>0 ? completedCount()/totalItems()*100 : 0)+'%', height:'100%', background:'var(--green)', borderRadius:'3px', transition:'width 0.3s'}"></div>
+        </div>
+    </div>
+
+    <!-- Checklist sections -->
+    <template x-for="section in sections" :key="section.name">
+        <div class="card mb-4" style="padding:0;">
+            <div class="flex items-center gap-2 px-5 py-3" style="border-bottom:1px solid var(--border);">
+                <span class="text-sm font-semibold" x-text="section.title"></span>
+                <span class="text-xs" style="color:var(--muted)" x-text="sectionCompleted(section) + '/' + section.items.length"></span>
+            </div>
+            <div class="px-5 py-2">
+                <template x-for="(item, idx) in section.items" :key="idx">
+                    <div class="flex items-start gap-3 py-2.5" style="border-bottom:1px solid var(--border);">
+                        <input type="checkbox" :id="'chk-'+section.name+'-'+idx" :checked="item.done"
+                               @change="toggleItem(section.name, idx)"
+                               style="margin-top:2px; accent-color:var(--green); cursor:pointer;">
+                        <label :for="'chk-'+section.name+'-'+idx" class="flex-1 text-sm cursor-pointer"
+                               :style="{color: item.done ? 'var(--muted)' : 'var(--text)', textDecoration: item.done ? 'line-through' : 'none'}">
+                            <span x-text="item.label"></span>
+                            <span x-show="item.note" class="text-xs ml-2" style="color:var(--muted);" x-text="'(' + item.note + ')'"></span>
+                        </label>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <div class="text-center mt-8 mb-12">
+        <button @click="resetAll()" class="btn-secondary text-xs">重置所有项</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function checklistApp() {
+    var projectId = '{{ project.id }}';
+    var journalStyle = '{{ project.journal_style or "general" }}';
+    var STORAGE_KEY = 'submission_checklist_' + projectId;
+
+    var defaultSections = [
+        {
+            name: 'general', icon: '', title: '通用项目',
+            items: [
+                {label:'标题页包含完整作者信息和通讯作者邮箱', note:''},
+                {label:'摘要不超过字数限制', note: journalStyle==='nature'||journalStyle==='science'?'150词':''},
+                {label:'关键词 3-8 个', note:''},
+                {label:'所有作者已确认最终版本', note:''},
+                {label:'利益冲突声明已添加', note:''},
+                {label:'伦理声明已添加（如适用）', note:''},
+                {label:'数据可用性声明已添加', note:''},
+                {label:'作者贡献声明已添加', note:''},
+                {label:'致谢部分完整', note:''},
+            ]
+        },
+        {
+            name: 'references', icon: '', title: '参考文献',
+            items: [
+                {label:'所有引用在正文中出现', note:''},
+                {label:'参考文献格式符合期刊要求', note:journalStyle||'apa'},
+                {label:'DOI 信息完整', note:''},
+                {label:'未引用未发表的数据', note:''},
+                {label:'自引比例合理', note:''},
+                {label:'参考文献数量符合期刊限制', note:''},
+            ]
+        },
+        {
+            name: 'figures', icon: '', title: '图表',
+            items: [
+                {label:'所有图片分辨率 >= 300 DPI', note:''},
+                {label:'图表编号连续且正确', note:''},
+                {label:'图题完整且自明', note:''},
+                {label:'表格使用三线表格式', note:''},
+                {label:'图表在正文中均有引用', note:''},
+                {label:'彩色图片确认期刊接受', note:''},
+            ]
+        },
+        {
+            name: 'submission', icon: '', title: '投稿准备',
+            items: [
+                {label:'封面信已准备', note:''},
+                {label:'推荐审稿人名单（如需要）', note:''},
+                {label:'补充材料已准备', note:''},
+                {label:'手稿文件格式正确（.docx / .tex / .pdf）', note:''},
+                {label:'文件命名符合期刊要求', note:''},
+                {label:'投稿系统账号已注册', note:''},
+                {label:'通讯作者 ORCID 已关联', note:''},
+            ]
+        }
+    ];
+
+    return {
+        sections: [],
+        journalName: '',
+        journalStyle: journalStyle,
+
+        init() {
+            this.journalName = journalStyle ? journalStyle.charAt(0).toUpperCase()+journalStyle.slice(1) : '';
+            // Load saved state or initialize
+            var saved = null;
+            try {
+                saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            } catch(e) {}
+            if (saved && saved.sections) {
+                this.sections = saved.sections;
+            } else {
+                this.sections = JSON.parse(JSON.stringify(defaultSections));
+            }
+        },
+        save() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({sections: this.sections}));
+            } catch(e) {}
+        },
+        toggleItem(sectionName, idx) {
+            var section = this.sections.find(function(s){return s.name===sectionName;});
+            if (section) {
+                section.items[idx].done = !section.items[idx].done;
+                this.save();
+            }
+        },
+        sectionCompleted(section) {
+            return section.items.filter(function(i){return i.done;}).length;
+        },
+        completedCount() {
+            var count = 0;
+            this.sections.forEach(function(s){ s.items.forEach(function(i){ if(i.done) count++; }); });
+            return count;
+        },
+        totalItems() {
+            var count = 0;
+            this.sections.forEach(function(s){ count += s.items.length; });
+            return count;
+        },
+        resetAll() {
+            if (!confirm('确定重置所有检查项？')) return;
+            this.sections = JSON.parse(JSON.stringify(defaultSections));
+            this.save();
+        },
+    };
+}
+</script>
+{% endblock %}
