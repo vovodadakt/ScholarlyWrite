@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}大纲编辑 - {{ project.title }} - ScholarlyWrite{% endblock %}
+
+{% block head %}
+<style>
+main.max-w-4xl { max-width:96vw!important; padding:0!important; }
+[x-cloak] { display:none!important; }
+.outline-wrap { height:calc(100vh - 64px); display:flex; flex-direction:column; background:var(--bg); }
+
+/* Flow stepper */
+.flow-stepper { display:flex; align-items:center; justify-content:center; gap:0; padding:10px 20px; flex-shrink:0; background:var(--card); border-bottom:1px solid var(--border); }
+.flow-step { display:flex; align-items:center; gap:0; }
+.flow-step-node { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6875rem; font-weight:700; flex-shrink:0; border:2px solid var(--border); color:var(--muted); background:var(--bg); transition:all 0.2s; }
+.flow-step-node.current { border-color:var(--accent); background:var(--accent); color:#fff; }
+.flow-step-node.done { border-color:var(--green); background:var(--green); color:#fff; }
+.flow-step-label { font-size:0.75rem; margin-left:6px; color:var(--muted); white-space:nowrap; }
+.flow-step-label.current { color:var(--accent); font-weight:600; }
+.flow-step-label.done { color:var(--green); }
+.flow-step-line { width:32px; height:2px; background:var(--border); margin:0 10px; flex-shrink:0; }
+.flow-step-line.done { background:var(--green); }
+.flow-step a { text-decoration:none; color:inherit; display:flex; align-items:center; }
+.flow-step a:hover .flow-step-label { color:var(--accent); }
+
+/* Panels */
+.panels { display:flex; flex:1; min-height:0; }
+.panel-outline { width:380px; flex-shrink:0; display:flex; flex-direction:column; background:var(--card); border-right:1px solid var(--border); }
+.panel-chat { flex:1; display:flex; flex-direction:column; min-width:0; background:var(--bg); }
+.panel-head { padding:12px 16px; display:flex; align-items:center; gap:8px; flex-shrink:0; border-bottom:1px solid var(--border); font-size:0.8125rem; font-weight:600; }
+.panel-body { flex:1; overflow-y:auto; min-height:0; padding:12px 16px; }
+.panel-body::-webkit-scrollbar { width:4px; }
+.panel-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+/* Outline tree */
+.outline-node { margin-bottom:2px; }
+.outline-section { display:flex; align-items:center; gap:6px; padding:8px 12px; background:var(--bg); border:1px solid var(--border); border-radius:4px; cursor:pointer; transition:all 0.15s; }
+.outline-section:hover { border-color:var(--accent); }
+.outline-section.active { border-color:var(--accent); background:var(--hover-row); }
+.outline-section .drag-handle { color:var(--muted); cursor:grab; font-size:0.75rem; flex-shrink:0; }
+.outline-section .sec-num { font-size:0.6875rem; color:var(--accent); font-weight:600; min-width:20px; flex-shrink:0; }
+.outline-section input { flex:1; border:none; outline:none; background:transparent; font-size:0.8125rem; color:var(--text); font-family:var(--font-system); }
+.outline-section input:focus { border-bottom:1px dashed var(--accent); }
+.outline-section .sec-actions { display:none; gap:2px; flex-shrink:0; }
+.outline-section:hover .sec-actions { display:flex; }
+.sec-actions button { font-size:0.625rem; padding:1px 5px; border:none; cursor:pointer; background:var(--hover-row); color:var(--muted); border-radius:2px; }
+.sec-actions button:hover { color:var(--text); }
+.sec-actions button.del:hover { color:var(--red); background:var(--error-bg); }
+
+.outline-sub { display:flex; align-items:center; gap:6px; padding:6px 12px 6px 32px; font-size:0.75rem; color:var(--muted); cursor:pointer; border-left:2px solid transparent; margin-left:16px; }
+.outline-sub:hover { color:var(--text); border-left-color:var(--border); }
+.outline-sub.active { color:var(--accent); border-left-color:var(--accent); }
+.outline-sub .sub-num { font-size:0.625rem; color:var(--muted); min-width:20px; flex-shrink:0; }
+.outline-sub input { flex:1; border:none; outline:none; background:transparent; font-size:0.75rem; color:inherit; font-family:var(--font-system); }
+.outline-sub input:focus { border-bottom:1px dashed var(--accent); }
+.outline-sub .sub-actions { display:none; gap:2px; flex-shrink:0; }
+.outline-sub:hover .sub-actions { display:flex; }
+
+/* Chat */
+.chat-msg { margin-bottom:16px; }
+.chat-msg .role { font-size:0.6875rem; color:var(--accent); font-weight:600; margin-bottom:4px; }
+.chat-msg .content { font-size:0.8125rem; line-height:1.7; white-space:pre-wrap; }
+.chat-input-wrap { display:flex; gap:6px; padding:10px 12px; flex-shrink:0; border-top:1px solid var(--border); background:var(--card); }
+.chat-input-wrap textarea { flex:1; border:1px solid var(--border); padding:8px; font-size:0.8125rem; font-family:var(--font-system); color:var(--text); background:var(--bg); outline:none; resize:none; border-radius:6px; min-height:40px; }
+.chat-input-wrap textarea:focus { border-color:var(--accent); }
+.chat-input-wrap button { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:8px 16px; font-size:0.75rem; cursor:pointer; font-family:inherit; white-space:nowrap; }
+.chat-input-wrap button:hover { background:var(--accent-hover); }
+.chat-input-wrap button:disabled { opacity:0.5; cursor:not-allowed; }
+
+.toolbar { display:flex; gap:8px; align-items:center; padding:8px 16px; flex-shrink:0; border-top:1px solid var(--border); background:var(--card); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="outlineApp('{{ project.id }}')" class="outline-wrap">
+
+    <!-- Flow stepper -->
+    <div class="flow-stepper">
+        <div class="flow-step">
+            <a href="/templates">
+                <div class="flow-step-node done">&#10003;</div>
+                <span class="flow-step-label done">{{ project.template_name or '选择模板' }}</span>
+            </a>
+        </div>
+        <div class="flow-step-line done"></div>
+        <div class="flow-step">
+            <a href="/projects/{{ project.id }}/ideation">
+                <div class="flow-step-node done">&#10003;</div>
+                <span class="flow-step-label done">灵感对话</span>
+            </a>
+        </div>
+        <div class="flow-step-line done"></div>
+        <div class="flow-step">
+            <div class="flow-step-node current">3</div>
+            <span class="flow-step-label current">大纲编辑</span>
+        </div>
+        <div class="flow-step-line"></div>
+        <div class="flow-step">
+            <div class="flow-step-node">4</div>
+            <span class="flow-step-label">逐章写作</span>
+        </div>
+    </div>
+
+    <div class="panels">
+        <!-- LEFT: Outline Editor -->
+        <div class="panel-outline">
+            <div class="panel-head">
+                大纲结构
+                <div style="margin-left:auto; display:flex; gap:6px;">
+                    <button @click="addSection()" class="text-xs px-2 py-1" style="background:var(--bg); border:1px solid var(--border); cursor:pointer; color:var(--muted); border-radius:3px;">+ 章节</button>
+                    <button @click="generateOutline()" class="text-xs px-2 py-1" style="background:var(--accent); color:#fff; border:none; cursor:pointer; border-radius:3px;" :disabled="generating">
+                        <span x-show="!generating">AI 生成</span><span x-show="generating">...</span>
+                    </button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div x-show="outline.sections.length===0" class="text-xs py-12 text-center" style="color:var(--muted); line-height:1.8">
+                    点击「AI 生成」根据灵感对话<br>自动生成大纲，或手动添加章节
+                </div>
+                <template x-for="(sec, si) in outline.sections" :key="si">
+                    <div class="outline-node">
+                        <div class="outline-section" :class="{active: activeSection===si}">
+                            <span class="sec-num" x-text="(si+1)+'.'"></span>
+                            <input type="text" x-model="sec.title" @input="autoSave()" @focus="activeSection=si" @keydown.enter.prevent="addSubsection(si)">
+                            <span class="sec-actions">
+                                <button @click="addSubsection(si)">+子</button>
+                                <button @click="deleteSection(si)" class="del">&times;</button>
+                            </span>
+                        </div>
+                        <template x-for="(sub, ssi) in (sec.subsections||[])" :key="ssi">
+                            <div class="outline-sub" :class="{active: activeSection===si && activeSubsection===ssi}">
+                                <span class="sub-num" x-text="(si+1)+'.'+(ssi+1)"></span>
+                                <input type="text" x-model="sub.title" @input="autoSave()" @focus="activeSection=si; activeSubsection=ssi">
+                                <span class="sub-actions">
+                                    <button @click="deleteSubsection(si, ssi)" class="del">&times;</button>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- RIGHT: AI Chat for Outline -->
+        <div class="panel-chat">
+            <div class="panel-head">
+                AI 大纲助手
+                <span class="text-xs" style="color:var(--muted); font-weight:400; margin-left:8px;">让 AI 帮你优化大纲结构</span>
+            </div>
+            <div class="panel-body" id="chat-scroll">
+                <div x-show="chatMessages.length===0 && !streaming" class="text-xs py-16 text-center" style="color:var(--muted); line-height:1.8">
+                    你可以让 AI 帮你：<br>
+                    &bull; 补充缺失的章节<br>
+                    &bull; 调整章节顺序和层级<br>
+                    &bull; 细化某一部分的子节<br>
+                    &bull; 根据期刊要求调整结构
+                </div>
+                <template x-for="(m, idx) in chatMessages" :key="idx">
+                    <div class="chat-msg">
+                        <div class="role" x-text="m.role==='user'?'你':'AI'"></div>
+                        <div class="content" x-text="m.content"></div>
+                    </div>
+                </template>
+                <div x-show="streaming" class="chat-msg" x-cloak>
+                    <div class="role">AI</div>
+                    <div class="content" x-text="streamContent"></div>
+                </div>
+            </div>
+            <div class="chat-input-wrap">
+                <textarea x-model="chatInput" rows="1" placeholder="描述你想要的调整..."
+                    @keydown.enter.prevent="sendChat()"
+                    @keydown.shift.enter.prevent="chatInput+='\n'"
+                    :disabled="streaming"></textarea>
+                <button @click="sendChat()" :disabled="streaming || !chatInput.trim()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom toolbar -->
+    <div class="toolbar">
+        <span class="flex-1"></span>
+        <button @click="confirmOutline()" class="btn-primary" style="font-size:0.875rem; padding:8px 28px;" :disabled="outline.sections.length===0">
+            确认大纲，进入写作
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function outlineApp(projectId) {
+    return {
+        projectId: projectId,
+        outline: {{ (outline.content | tojson | safe) if outline else '{ "sections": [] }' }},
+        activeSection: null,
+        activeSubsection: null,
+        generating: false,
+        chatMessages: [],
+        chatInput: '',
+        streamContent: '',
+        streaming: false,
+        saveTimer: null,
+
+        init() {
+            if (!this.outline) this.outline = {sections: []};
+            if (!this.outline.sections) this.outline.sections = [];
+            this.scrollChat();
+        },
+
+        // ── Outline CRUD ──
+        addSection() {
+            this.outline.sections.push({title: '新章节', subsections: []});
+            this.autoSave();
+        },
+        addSubsection(si) {
+            if (!this.outline.sections[si].subsections) this.outline.sections[si].subsections = [];
+            this.outline.sections[si].subsections.push({title: '新小节'});
+            this.autoSave();
+        },
+        deleteSection(si) {
+            if (!confirm('删除 "' + (this.outline.sections[si].title || '未命名章节') + '" 及所有子节？')) return;
+            this.outline.sections.splice(si, 1);
+            this.autoSave();
+        },
+        deleteSubsection(si, ssi) {
+            this.outline.sections[si].subsections.splice(ssi, 1);
+            this.autoSave();
+        },
+        autoSave() {
+            var self = this;
+            if (self.saveTimer) clearTimeout(self.saveTimer);
+            self.saveTimer = setTimeout(function () {
+                fetch('/api/projects/' + self.projectId + '/outline', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: self.outline})
+                });
+            }, 600);
+        },
+
+        // ── AI Generate ──
+        async generateOutline() {
+            var self = this;
+            self.generating = true;
+            try {
+                var r = await fetch('/api/projects/' + self.projectId + '/outline/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({topic: '', description: ''})
+                });
+                if (r.ok) {
+                    self.outline = await r.json();
+                    if (!self.outline.sections) self.outline.sections = [];
+                    self.autoSave();
+                } else {
+                    var e = await r.json();
+                    alert(e.detail || '生成失败');
+                }
+            } catch (e) {
+                alert('生成失败: ' + e.message);
+            }
+            self.generating = false;
+        },
+
+        // ── AI Chat ──
+        async sendChat() {
+            var self = this;
+            var txt = self.chatInput.trim();
+            if (!txt || self.streaming) return;
+
+            // Build context: current outline
+            var ctx = '当前大纲结构：\n';
+            for (var i = 0; i < self.outline.sections.length; i++) {
+                var s = self.outline.sections[i];
+                ctx += (i + 1) + '. ' + s.title + '\n';
+                if (s.subsections) {
+                    for (var j = 0; j < s.subsections.length; j++) {
+                        ctx += '  ' + (i + 1) + '.' + (j + 1) + ' ' + s.subsections[j].title + '\n';
+                    }
+                }
+            }
+            var fullMsg = ctx + '\n用户要求：' + txt;
+
+            self.chatMessages.push({role: 'user', content: txt});
+            self.chatInput = '';
+            self.streamContent = '';
+            self.streaming = true;
+            self.scrollChat();
+
+            try {
+                var resp = await fetch('/api/projects/' + self.projectId + '/chat?message=' + encodeURIComponent(fullMsg));
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                var reader = resp.body.getReader();
+                var dec = new TextDecoder(), buf = '', full = '';
+                while (true) {
+                    var r = await reader.read();
+                    if (r.done) break;
+                    buf += dec.decode(r.value, {stream: true});
+                    var lines = buf.split('\n');
+                    buf = lines.pop() || '';
+                    for (var i = 0; i < lines.length; i++) {
+                        if (lines[i].startsWith('data: ')) {
+                            try {
+                                var d = JSON.parse(lines[i].slice(6));
+                                if (d.text) { full += d.text; self.streamContent = full; self.scrollChat(); }
+                                if (d.error) alert(d.error);
+                            } catch (e) {}
+                        }
+                    }
+                }
+                self.chatMessages.push({role: 'assistant', content: full});
+                self.streamContent = '';
+                self.streaming = false;
+                self.scrollChat();
+            } catch (e) {
+                self.chatMessages.push({role: 'assistant', content: '请求失败: ' + e.message});
+                self.streaming = false;
+            }
+        },
+
+        scrollChat() {
+            var self = this;
+            self.$nextTick(function () {
+                var el = document.getElementById('chat-scroll');
+                if (el) el.scrollTop = el.scrollHeight;
+            });
+        },
+
+        // ── Confirm ──
+        async confirmOutline() {
+            await fetch('/api/projects/' + this.projectId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: 'outline_ready'})
+            });
+            window.location.href = '/projects/' + this.projectId;
+        }
+    };
+}
+</script>
+{% endblock %}

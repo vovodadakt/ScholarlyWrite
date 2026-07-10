@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}关于 - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-10">
+        <h1 class="text-2xl font-semibold mb-2">我们在做一件事</h1>
+        <p class="text-sm" style="color:var(--muted); max-width:480px; margin:0 auto; line-height:1.8;">
+            让学术写作变得更简单。<br>
+            用一个平台，串联起灵感、大纲、写作、文献、数据、实验、投稿的全部流程。
+        </p>
+    </div>
+
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">这件事是什么</h2>
+        <p class="text-sm leading-relaxed mb-3" style="color:var(--muted)">
+            ScholarlyWrite 是一个独立开发的 AI 辅助学术写作平台。
+            它不只是一个编辑器——它覆盖从研究构思到期刊投稿的完整链路：
+            灵感对话帮你理清思路，大纲生成给你结构框架，逐章写作让你专注内容，
+            文献管理省去手动排格式的烦恼，数据分析、实验手册让研究过程有据可查，
+            最后用期刊样式导出和投稿检查清单帮你走完最后一公里。
+        </p>
+        <p class="text-sm leading-relaxed" style="color:var(--muted)">
+            我们相信，好的工具应该让研究者专注于思考本身，而不是跟格式、排版、流程较劲。
+        </p>
+    </div>
+
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">核心功能</h2>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="py-2">
+                <div class="text-sm font-medium">灵感对话</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">AI 辅助头脑风暴，梳理研究思路</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">大纲生成</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">智能生成论文大纲，支持多种模板</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">逐章写作</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">富文本编辑器，公式/表格/脚注/交叉引用</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">文献管理</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">DOI 导入，9 种引文格式，BibTeX 支持</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">数据分析</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">CSV 上传，预处理，可视化图表</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">实验手册</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">实验设计、记录、结论全流程管理</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">多格式导出</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">DOCX / LaTeX / PDF，支持期刊样式</div>
+            </div>
+            <div class="py-2">
+                <div class="text-sm font-medium">投稿检查</div>
+                <div class="text-xs mt-0.5" style="color:var(--muted)">期刊格式自动检查，封面信生成</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">联系我们</h2>
+        <p class="text-sm leading-relaxed mb-3" style="color:var(--muted)">
+            如有问题、建议或合作意向，欢迎通过以下方式联系：
+        </p>
+        <div class="text-sm space-y-2">
+            <div class="flex items-center gap-2">
+                <span style="color:var(--muted)">邮箱：</span>
+                <a href="mailto:contact@scholarlywrite.com" style="color:var(--accent)">contact@scholarlywrite.com</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <span style="color:var(--muted)">GitHub：</span>
+                <a href="https://github.com/scholarlywrite" target="_blank" rel="noopener" style="color:var(--accent)">github.com/scholarlywrite</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-6" style="background:var(--hover-row); border-color:var(--accent);">
+        <h2 class="text-lg font-semibold mb-3">支持我们</h2>
+        <p class="text-sm leading-relaxed mb-3" style="color:var(--muted)">
+            ScholarlyWrite 是一个独立开发的开源项目，正在持续迭代中。
+            如果你觉得它对你的研究有帮助，欢迎到爱发电支持我们，帮助我们做得更好。
+        </p>
+        <p class="text-sm">
+            <a href="https://ifdian.net/a/vovodadakat" target="_blank" rel="noopener" style="color:var(--accent); font-weight:500;">在爱发电支持我们 &rarr;</a>
+        </p>
+    </div>
+
+    <div class="text-center text-xs" style="color:var(--muted); padding-bottom:40px;">
+        <p>ScholarlyWrite &copy; 2025 &middot; 为学术写作而生</p>
+    </div>
+</div>
+{% endblock %}

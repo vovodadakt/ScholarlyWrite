@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}灵感对话 - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<style>
+main.max-w-4xl { max-width:96vw !important; padding:0 !important; }
+.wrap { height:calc(100vh - 64px); display:flex; background:var(--bg); position:relative; overflow:hidden; }
+
+/* Flow stepper */
+.flow-stepper { display:flex; align-items:center; justify-content:center; gap:0; padding:10px 20px; flex-shrink:0; background:var(--card); border-bottom:1px solid var(--border); }
+.flow-step { display:flex; align-items:center; gap:0; }
+.flow-step-node { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6875rem; font-weight:700; flex-shrink:0; border:2px solid var(--border); color:var(--muted); background:var(--bg); transition:all 0.2s; }
+.flow-step-node.current { border-color:var(--accent); background:var(--accent); color:#fff; }
+.flow-step-node.done { border-color:var(--green); background:var(--green); color:#fff; }
+.flow-step-label { font-size:0.75rem; margin-left:6px; color:var(--muted); white-space:nowrap; }
+.flow-step-label.current { color:var(--accent); font-weight:600; }
+.flow-step-label.done { color:var(--green); }
+.flow-step-line { width:32px; height:2px; background:var(--border); margin:0 10px; flex-shrink:0; }
+.flow-step-line.done { background:var(--green); }
+.flow-step a { text-decoration:none; color:inherit; display:flex; align-items:center; }
+.flow-step a:hover .flow-step-label { color:var(--accent); }
+.panel-search { width:260px; flex-shrink:0; display:flex; flex-direction:column; background:var(--card); border-right:1px solid var(--border); }
+.panel-chat { flex:1; display:flex; flex-direction:column; min-width:0; background:var(--bg); }
+.panel-head { padding:12px 16px; display:flex; align-items:center; flex-shrink:0; border-bottom:1px solid var(--border); font-size:0.8125rem; font-weight:600; }
+.panel-body { flex:1; overflow-y:auto; min-height:0; padding:12px 16px; }
+.panel-body::-webkit-scrollbar { width:4px; }
+.panel-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+.chat-msg { display:flex; gap:12px; margin-bottom:24px; max-width:768px; margin-left:auto; margin-right:auto; }
+.chat-avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.625rem; font-weight:700; flex-shrink:0; margin-top:2px; }
+.av-ai { background:var(--accent); color:#fff; }
+.av-user { background:var(--muted); color:#fff; }
+.chat-bubble { font-size:0.875rem; line-height:1.7; }
+.chat-bubble.user { max-width:72%; margin-left:auto; padding:10px 14px; background:var(--hover-row); border-radius:8px; }
+.chat-input-inner { display:flex; gap:8px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 10px 10px 18px; align-items:flex-end; }
+.chat-input-inner textarea { flex:1; border:none; outline:none; resize:none; background:transparent; font-family:inherit; font-size:0.9375rem; color:var(--text); padding:5px 0; line-height:1.5; min-height:26px; max-height:120px; }
+.chat-input-inner textarea::placeholder { color:var(--muted); }
+.chat-send { background:var(--accent); color:#fff; border:none; border-radius:10px; padding:8px 20px; font-size:0.875rem; cursor:pointer; font-family:inherit; }
+.chat-send:hover { background:var(--accent-hover); }
+.chat-send:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* Drawer trigger button */
+.drawer-btn { position:absolute; right:0; top:50%; transform:translateY(-50%); z-index:40; writing-mode:vertical-rl; letter-spacing:0.2em; padding:16px 10px; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:0.8125rem; font-family:var(--font-system); border-radius:6px 0 0 6px; transition:opacity 0.2s; }
+.drawer-btn:hover { opacity:0.85; }
+
+/* Drawer overlay */
+.drawer-overlay { position:absolute; inset:0; z-index:45; background:rgba(0,0,0,0.2); display:none; }
+.drawer-overlay.show { display:block; }
+
+.drawer-panel { position:absolute; right:0; top:0; bottom:0; width:420px; z-index:50; background:var(--card); border-left:1px solid var(--border); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.25s ease; }
+.drawer-panel.show { transform:translateX(0); }
+
+.note-field { margin-bottom:16px; }
+.note-label { font-size:0.75rem; color:var(--muted); margin-bottom:6px; font-weight:500; }
+.note-input { width:100%; border:1px solid var(--border); padding:10px 12px; font-size:0.875rem; font-family:var(--font-system); color:var(--text); background:var(--bg); outline:none; line-height:1.6; border-radius:4px; }
+.note-input:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--focus-ring); }
+.note-textarea { min-height:90px; }
+.draft-area { min-height:200px; }
+</style>
+
+<div x-data="app('{{ project.id }}')" class="wrap" style="flex-direction:column;">
+
+    <!-- Flow stepper -->
+    <div class="flow-stepper">
+        <!-- Step 1: Template -->
+        <div class="flow-step">
+            <a href="/templates">
+                <div class="flow-step-node" :class="hasTemplate ? 'done' : ''"><span x-show="!hasTemplate">1</span><span x-show="hasTemplate">&#10003;</span></div>
+                <span class="flow-step-label" :class="hasTemplate ? 'done' : ''" x-text="hasTemplate ? projectLabels.template : '选择模板'"></span>
+            </a>
+        </div>
+        <div class="flow-step-line" :class="hasTemplate ? 'done' : ''"></div>
+        <!-- Step 2: Ideation (current) -->
+        <div class="flow-step">
+            <div class="flow-step-node current">2</div>
+            <span class="flow-step-label current">灵感对话</span>
+        </div>
+        <div class="flow-step-line"></div>
+        <!-- Step 3: Outline -->
+        <div class="flow-step">
+            <div class="flow-step-node">3</div>
+            <span class="flow-step-label" x-text="projectLabels.outline"></span>
+        </div>
+        <div class="flow-step-line"></div>
+        <!-- Step 4: Writing -->
+        <div class="flow-step">
+            <div class="flow-step-node">4</div>
+            <span class="flow-step-label" x-text="projectLabels.writing"></span>
+        </div>
+    </div>
+
+    <div style="display:flex; flex:1; min-height:0; position:relative;">
+    <!-- LEFT: Search -->
+    <div class="panel-search">
+        <div class="panel-head">文献检索</div>
+        <div style="padding:10px 12px; flex-shrink:0; border-bottom:1px solid var(--border);">
+            <div class="flex gap-1">
+                <input type="text" x-model="searchQuery" @keydown.enter="doSearch()" placeholder="搜索关键词..." class="input-field" style="font-size:0.75rem; padding:5px 8px;">
+                <button @click="doSearch()" style="font-size:0.75rem; padding:4px 8px; color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;" :disabled="isSearching">搜</button>
+            </div>
+        </div>
+        <div class="panel-body px-3">
+            <div x-show="isSearching" class="text-xs py-12 text-center" style="color:var(--muted)">搜索中...</div>
+            <div x-show="!isSearching && searchResults.length===0 && !searched" class="text-xs py-16 text-center" style="color:var(--muted); line-height:1.8">输入关键词<br>查找相关论文</div>
+            <div x-show="searchError" class="text-xs py-8 text-center" style="color:var(--red)" x-text="searchError"></div>
+            <template x-for="(r,i) in searchResults" :key="i">
+                <div class="text-xs py-2 cursor-pointer" style="border-bottom:1px solid var(--border);" @click="insertRef(r)">
+                    <div class="font-medium leading-snug" x-text="r.title" style="margin-bottom:2px"></div>
+                    <div style="color:var(--muted)">
+                        <span x-text="r.authors?r.authors.slice(0,2).join(', '):''"></span>
+                        <span x-show="r.year" x-text="' &middot; '+r.year"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- CENTER: Chat -->
+    <div class="panel-chat">
+        <div class="panel-head" style="border-bottom:1px solid var(--border);">
+            灵感对话
+            <span class="text-xs ml-3" style="color:var(--muted); font-weight:400; letter-spacing:0;">点击右侧按钮打开研究笔记</span>
+            <button @click="exportChat()" class="text-xs px-2 py-0.5" style="margin-left:auto; color:var(--accent); background:none; border:1px solid var(--border); cursor:pointer;">导出</button>
+            <button @click="clearHistory()" class="text-xs px-2 py-0.5" style="color:var(--red); background:none; border:1px solid var(--border); cursor:pointer;">清除</button>
+        </div>
+        <div class="panel-body" id="chat-scroll" style="padding-top:16px;">
+            <div x-show="convoSummary" x-cloak class="text-xs mb-4 mx-2 px-3 py-2" style="background:var(--hover-row); border:1px solid var(--border); border-radius:6px; line-height:1.6; max-height:120px; overflow-y:auto;">
+                <div class="font-medium mb-1" style="color:var(--accent);">对话摘要 (历史记录已压缩)</div>
+                <div style="color:var(--muted); white-space:pre-wrap;" x-text="convoSummary"></div>
+            </div>
+            <template x-for="(m, idx) in messages" :key="idx">
+                <div class="chat-msg">
+                    <template x-if="m.role === 'assistant'"><div class="chat-avatar av-ai">AI</div></template>
+                    <div class="chat-bubble" :class="m.role" x-text="m.content" :style="m.role==='assistant'?'flex:1':'max-width:65%'"></div>
+                    <template x-if="m.role === 'user'"><div class="chat-avatar av-user">U</div></template>
+                </div>
+            </template>
+            <div x-show="streaming && streamContent" class="chat-msg" x-cloak>
+                <div class="chat-avatar av-ai">AI</div>
+                <div class="chat-bubble" x-text="streamContent" style="flex:1"></div>
+            </div>
+            <div x-show="isGenerating && !streamContent" class="chat-msg" x-cloak>
+                <div class="chat-avatar av-ai">AI</div>
+                <div class="chat-bubble" style="color:var(--muted); flex:1">...</div>
+            </div>
+        </div>
+        <div style="padding:0 16px 16px; flex-shrink:0; max-width:816px; margin:0 auto; width:100%;">
+            <div class="chat-input-inner">
+                <textarea x-model="inputText"
+                          @keydown.enter.prevent="sendMessage()"
+                          @keydown.shift.enter.prevent="inputText += '\n'"
+                          placeholder="描述你的研究方向..."
+                          rows="1" :disabled="isGenerating"></textarea>
+                <button class="chat-send" @click="sendMessage()" :disabled="isGenerating || !inputText.trim()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawer trigger button -->
+    <button class="drawer-btn" @click="showDrawer=true" x-show="!showDrawer">
+        研究笔记 &amp; 草稿
+    </button>
+
+    <!-- Drawer overlay -->
+    <div class="drawer-overlay" :class="{show:showDrawer}" @click="showDrawer=false"></div>
+
+    <!-- RIGHT: Slide-out Drawer -->
+    <div class="drawer-panel" :class="{show:showDrawer}">
+        <div class="panel-head">
+            研究笔记 &amp; 草稿
+            <button @click="showDrawer=false" class="ml-auto text-sm" style="background:none; border:none; cursor:pointer; color:var(--muted); font-size:1.25rem;">&times;</button>
+        </div>
+        <div class="panel-body">
+            <!-- Research Notes - dynamic fields based on template category -->
+            <div class="note-label" style="font-size:0.75rem; color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:14px;">
+                研究笔记
+                <span class="text-xs ml-1" style="color:var(--muted); font-weight:400;" x-text="'&middot; ' + (templateCategory==='empirical'?'实证研究':'review'===templateCategory?'系统综述':'qualitative'===templateCategory?'质性研究':'mixed'===templateCategory?'混合方法':'theoretical'===templateCategory?'理论研究':'通用')"></span>
+            </div>
+            <template x-for="field in noteFields" :key="field.key">
+                <div class="note-field">
+                    <div class="note-label" x-text="field.label"></div>
+                    <input x-show="field.type==='input'" type="text" x-model="notes[field.key]" class="note-input" :placeholder="field.placeholder">
+                    <textarea x-show="field.type==='textarea'" x-model="notes[field.key]" class="note-input note-textarea" :placeholder="field.placeholder" rows="3"></textarea>
+                </div>
+            </template>
+
+            <!-- Draft -->
+            <div class="note-label" style="font-size:0.75rem; color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:14px; margin-top:24px;">草稿</div>
+            <div class="note-field">
+                <textarea x-model="notes.draft" class="note-input draft-area" placeholder="在此自由撰写草稿..."></textarea>
+            </div>
+        </div>
+        <div style="padding:12px 16px; flex-shrink:0; border-top:1px solid var(--border);">
+            <button @click="confirmProject()" class="btn-primary w-full" style="font-size:0.875rem; padding:10px 0;"
+                    :disabled="isGenerating || messages.length < 2">
+                <span x-show="hasTemplate">确认，进入写作</span>
+                <span x-show="!hasTemplate">确认，选择模板并进入写作</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Select template modal -->
+    <div x-show="showTemplates" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.35)" @click.outside="showTemplates=false">
+        <div class="card" style="width:600px; max-width:90vw; max-height:80vh; overflow-y:auto;">
+            <h3 class="text-base font-semibold mb-1">选择模板并生成全文</h3>
+            <p class="text-xs mb-5" style="color:var(--muted)">AI 将根据研究笔记和模板一次性生成完整论文初稿</p>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs mb-2 font-medium" style="color:var(--muted)">内容模板</label>
+                    <div class="space-y-1 max-h-48 overflow-y-auto">
+                        <template x-for="(t, i) in contentTemplates" :key="i">
+                            <div class="flex items-center gap-2 text-xs py-1.5 px-2 cursor-pointer rounded"
+                                 :style="{background: contentTemplateIdx === i ? 'var(--hover-row)' : 'transparent', border: contentTemplateIdx === i ? '1px solid var(--accent)' : '1px solid transparent'}"
+                                 @click="contentTemplateIdx = i">
+                                <span x-text="t.name"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs mb-2 font-medium" style="color:var(--muted)">期刊模板</label>
+                    <div class="space-y-1 max-h-48 overflow-y-auto">
+                        <template x-for="(j, i) in journalTemplates" :key="i">
+                            <div class="flex items-center gap-2 text-xs py-1.5 px-2 cursor-pointer rounded"
+                                 :style="{background: journalTemplateIdx === i ? 'var(--hover-row)' : 'transparent', border: journalTemplateIdx === i ? '1px solid var(--accent)' : '1px solid transparent'}"
+                                 @click="journalTemplateIdx = i">
+                                <span x-text="j.name"></span>
+                                <span style="color:var(--muted); font-size:0.625rem;" x-text="j.desc"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button @click="doConfirm()" class="btn-primary flex-1">生成全文初稿</button>
+                <button @click="showTemplates=false" class="btn-secondary flex-1">返回修改</button>
+            </div>
+        </div>
+    </div>
+    </div><!-- end flex wrapper -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>[x-cloak] { display: none !important; }</style>
+<script>
+function app(projectId) {
+    return {
+        projectId,
+        messages: {{ history.messages | tojson | safe }},
+        convoSummary: {{ history.summary | tojson | safe }},
+        convoTotal: {{ history.total_count }},
+        noteFields: {{ note_fields | tojson | safe }},
+        templateCategory: {{ template_category | tojson | safe }},
+        notes: {},
+        inputText:'', streamContent:'', isGenerating:false, streaming:false,
+        showDrawer:false, showTemplates:false, saveTimer:null,
+        searchQuery:'', searchResults:[], searchError:'', isSearching:false, searched:false,
+        contentTemplateIdx: 0,
+        journalTemplateIdx: 0,
+        contentTemplates: {{ content_templates | tojson | safe }},
+        journalTemplates: {{ journal_templates | tojson | safe }},
+        hasTemplate: {{ ('true' if project.template_name else 'false') | safe }},
+        projectLabels: {
+            template: {{ ('\'' + project.template_name + '\'' if project.template_name else '选择模板') | safe }},
+            outline: '大纲编辑',
+            writing: '逐章写作'
+        },
+
+        init() {
+            // Init notes from field definitions
+            var notesObj = {};
+            for (var i = 0; i < this.noteFields.length; i++) {
+                notesObj[this.noteFields[i].key] = '';
+            }
+            notesObj.draft = '';
+            this.notes = notesObj;
+            this.scrollDown();
+            this.loadNotes();
+            var self = this;
+            this.$watch('notes', function(){ self.autoSaveNotes(); });
+        },
+        async loadNotes(){ try{ var r=await fetch('/api/projects/'+this.projectId+'/research-notes'); if(r.ok){ var d=await r.json(); for(var k in d){ if(this.notes.hasOwnProperty(k)) this.notes[k]=d[k]||''; } } }catch(e){} },
+        autoSaveNotes(){ var s=this; if(s.saveTimer) clearTimeout(s.saveTimer); s.saveTimer=setTimeout(function(){ fetch('/api/projects/'+s.projectId+'/research-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s.notes)}); }, 1500); },
+        async clearHistory(){ if(!confirm('确定清除所有对话记录？此操作不可恢复。')) return; try{ await fetch('/api/projects/'+this.projectId+'/chat/history',{method:'DELETE'}); this.messages=[]; this.convoSummary=''; this.convoTotal=0; }catch(e){ alert('清除失败: '+e.message); } },
+        exportChat(){ var text=''; if(this.convoSummary){ text+='# 对话摘要\n\n'+this.convoSummary+'\n\n---\n\n'; } text+='# 最近对话 ('+this.messages.length+' 条)\n\n'; for(var i=0;i<this.messages.length;i++){ var m=this.messages[i]; text+=(m.role==='user'?'## 用户\n':'## AI\n')+m.content+'\n\n'; } var blob=new Blob([text],{type:'text/markdown;charset=utf-8'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='对话记录_'+new Date().toISOString().slice(0,10)+'.md'; a.click(); },
+
+        async sendMessage() {
+            var text = this.inputText.trim(); if (!text || this.isGenerating) return;
+            this.messages.push({role:'user', content:text});
+            this.inputText=''; this.streamContent=''; this.isGenerating=true; this.streaming=true; this.scrollDown();
+            try {
+                var resp = await fetch('/api/projects/'+this.projectId+'/chat?message='+encodeURIComponent(text));
+                if (!resp.ok) throw new Error('HTTP '+resp.status);
+                var reader=resp.body.getReader(); var dec=new TextDecoder(); var buf='', full='';
+                while(true) { var r=await reader.read(); if(r.done)break; buf+=dec.decode(r.value,{stream:true}); var lines=buf.split('\n'); buf=lines.pop()||''; for(var i=0;i<lines.length;i++) { if(lines[i].startsWith('data: ')) { try { var d=JSON.parse(lines[i].slice(6)); if(d.text) { full+=d.text; this.streamContent=full; this.scrollDown(); } if(d.error) alert(d.error); } catch(e){} } } }
+                this.messages.push({role:'assistant', content:full}); this.streamContent=''; this.streaming=false;
+                // Try to extract notes from AI response using field labels
+                for (var fi = 0; fi < this.noteFields.length; fi++) {
+                    var fld = this.noteFields[fi];
+                    var label = fld.label;
+                    var re = new RegExp(label + '[：:]\\s*(.+)');
+                    var m = full.match(re);
+                    if (m) this.notes[fld.key] = m[1].trim();
+                }
+            } catch(e) { alert('发送失败: '+e.message); }
+            this.isGenerating = false; this.scrollDown();
+        },
+
+        confirmProject() {
+            if (this.hasTemplate) {
+                // Template already selected, skip picker
+                this.doConfirm();
+            } else {
+                this.showTemplates = true;
+            }
+        },
+
+        async doConfirm() {
+            var ct = this.hasTemplate ? null : this.contentTemplates[this.contentTemplateIdx];
+            var jt = this.hasTemplate ? null : this.journalTemplates[this.journalTemplateIdx];
+            // Build context from all note fields
+            var ctx = { draft: this.notes.draft || '' };
+            for (var i = 0; i < this.noteFields.length; i++) {
+                var fld = this.noteFields[i];
+                ctx[fld.key] = this.notes[fld.key] || '';
+            }
+            if (!ctx.topic) ctx.topic = {{ project.title | tojson | safe }};
+            if (ctx.keywords && typeof ctx.keywords === 'string') {
+                ctx.keywords = ctx.keywords.split(/[,，\s]+/).filter(Boolean);
+            }
+            ctx.content_template = ct ? ct.name : ({{ (project.template_name or '') | tojson | safe }});
+            ctx.journal_template = jt ? jt.name : '';
+            ctx.journal_style = jt ? jt.style : ({{ (project.journal_style or 'general') | tojson | safe }});
+            if (ct) {
+                await fetch('/api/projects/'+this.projectId+'/outline', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:{title:ctx.topic||ct.name, sections:ct.sections.map(function(s){return {title:s,subsections:[]};})}})});
+            }
+            await fetch('/api/projects/'+this.projectId+'/ideation/confirm', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:ctx.topic || '未命名项目', context:ctx})});
+            window.location.href = '/projects/' + this.projectId + '/outline';
+        },
+
+        scrollDown() { var s=this; this.$nextTick(function() { var el=document.getElementById('chat-scroll'); if(el) el.scrollTop=el.scrollHeight; }); },
+        async doSearch(){ var q=this.searchQuery.trim(); if(!q)return; this.isSearching=true;this.searched=true;this.searchResults=[];this.searchError=''; try{var r=await fetch('/api/references/search?q='+encodeURIComponent(q)+'&limit=10');var d=await r.json();this.searchResults=d.results||[];this.searchError=d.error||'';}catch(e){this.searchError='搜索失败';} this.isSearching=false; },
+        insertRef(r){ var c=r.title||''; if(r.authors&&r.authors.length)c=r.authors[0]+(r.year?' ('+r.year+') ':' ')+c; this.inputText=(this.inputText+' '+c).trim(); },
+    }
+}
+</script>
+{% endblock %}

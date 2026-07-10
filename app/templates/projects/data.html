@@ -1,0 +1,1345 @@
+{% extends "base.html" %}
+{% block title %}数据分析 - {{ project.title }} - ScholarlyWrite{% endblock %}
+
+{% block head %}
+<style>
+main.max-w-4xl { max-width:100%!important; padding:0!important; }
+[x-cloak] { display:none!important; }
+
+.data-wrap { max-width:1300px; margin:0 auto; padding:20px 24px; }
+
+/* Header */
+.data-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.data-header h1 { font-size:1.1rem; font-weight:600; }
+.data-header p { font-size:0.75rem; color:var(--muted); }
+
+/* ── Source Tabs ── */
+.source-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; }
+.source-tab { padding:8px 18px; font-size:0.8125rem; cursor:pointer; border:none; background:none;
+    color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.15s; }
+.source-tab:hover { color:var(--text); }
+.source-tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+
+/* ── Upload Zone ── */
+.upload-zone { border:2px dashed var(--border); border-radius:8px; padding:32px; text-align:center;
+    cursor:pointer; transition:all 0.2s; background:var(--card); }
+.upload-zone:hover, .upload-zone.dragover { border-color:var(--accent); background:var(--hover-row); }
+.upload-zone .label { font-size:0.875rem; color:var(--text); font-weight:500; }
+.upload-zone .hint { font-size:0.75rem; color:var(--muted); margin-top:4px; }
+
+/* File input button */
+.file-input-wrap { display:inline-flex; align-items:center; gap:8px; margin-top:12px; }
+.file-input-btn { display:inline-flex; align-items:center; padding:8px 18px;
+    background:var(--accent); color:#fff; border:none; border-radius:4px; font-size:0.8125rem;
+    cursor:pointer; font-family:inherit; }
+.file-input-btn:hover { background:var(--accent-hover); }
+.file-name { font-size:0.75rem; color:var(--muted); max-width:200px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+
+/* Format options */
+.format-toggle { font-size:0.75rem; color:var(--accent); cursor:pointer; margin-top:12px; display:inline-block; }
+.format-toggle:hover { text-decoration:underline; }
+.format-panel { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-top:10px;
+    padding:12px; background:var(--input-bg); border-radius:6px; }
+.format-field { display:flex; flex-direction:column; gap:3px; }
+.format-field label { font-size:0.6875rem; color:var(--muted); }
+.format-field select, .format-field input { font-size:0.75rem; padding:4px 8px; border:1px solid var(--border);
+    border-radius:4px; background:var(--bg); color:var(--text); outline:none; }
+.format-field select:focus, .format-field input:focus { border-color:var(--accent); }
+
+/* ── Sample Cards ── */
+.sample-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; }
+.sample-card { border:1px solid var(--border); border-radius:6px; padding:16px; cursor:pointer;
+    transition:all 0.15s; background:var(--card); }
+.sample-card:hover { border-color:var(--accent); background:var(--hover-row); }
+.sample-card .title { font-size:0.875rem; font-weight:600; margin-bottom:4px; }
+.sample-card .desc { font-size:0.75rem; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+.sample-card .cat { font-size:0.625rem; color:var(--accent); background:var(--hover-row);
+    display:inline-block; padding:1px 6px; border-radius:3px; }
+
+/* ── Paste / URL areas ── */
+.paste-area { width:100%; min-height:160px; font-size:0.8125rem; font-family:var(--font-mono,monospace);
+    padding:12px; border:1px solid var(--border); border-radius:6px; resize:vertical;
+    background:var(--bg); color:var(--text); outline:none; }
+.paste-area:focus { border-color:var(--accent); }
+.url-input { width:100%; font-size:0.8125rem; padding:8px 12px; border:1px solid var(--border);
+    border-radius:6px; background:var(--bg); color:var(--text); outline:none; }
+.url-input:focus { border-color:var(--accent); }
+
+/* ── Preview Panel ── */
+.preview-panel { margin-top:20px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.preview-head { display:flex; align-items:center; justify-content:space-between; padding:10px 16px;
+    background:var(--hover-row); border-bottom:1px solid var(--border); font-size:0.8125rem; font-weight:600; }
+.preview-table-wrap { max-height:300px; overflow:auto; }
+.preview-table { width:100%; font-size:0.75rem; border-collapse:collapse; }
+.preview-table th { position:sticky; top:0; background:var(--card); padding:6px 10px; text-align:left;
+    font-size:0.6875rem; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+.preview-table th .type-badge { font-size:0.5625rem; padding:1px 5px; border-radius:3px; margin-left:4px; cursor:pointer; }
+.type-badge.numeric { background:#e3f2fd; color:#1565c0; }
+.type-badge.text { background:#fce4ec; color:#c62828; }
+.preview-table td { padding:4px 10px; border-bottom:1px solid var(--border-hair); max-width:160px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── Data management layout ── */
+.data-layout { display:flex; gap:20px; }
+.data-left { width:340px; flex-shrink:0; display:flex; flex-direction:column; gap:16px; }
+.data-right { flex:1; min-width:0; }
+
+/* Panels */
+.dm-panel { border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--card); }
+.dm-panel-head { display:flex; align-items:center; gap:8px; padding:8px 14px; font-size:0.75rem;
+    font-weight:600; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+.dm-panel-head .arrow { font-size:0.75rem; color:var(--muted); width:16px; text-align:center; }
+.dm-panel-head.open .arrow { transform:rotate(90deg); }
+.dm-panel-body { padding:10px 14px; font-size:0.75rem; }
+.dm-panel-scroll { max-height:320px; overflow-y:auto; }
+
+/* Stats */
+.stat-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid var(--border-hair); }
+.stat-label { color:var(--muted); }
+.stat-value { font-weight:500; }
+
+/* Preprocess ops */
+.preprocess-op { display:flex; align-items:center; gap:6px; padding:6px 8px; margin-bottom:4px;
+    background:var(--input-bg); border-radius:4px; font-size:0.6875rem; }
+.preprocess-op select, .preprocess-op input { font-size:0.6875rem; padding:2px 6px;
+    border:1px solid var(--border); border-radius:3px; background:var(--bg); color:var(--text); }
+
+/* Chart controls */
+.chart-controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.chart-controls .field { display:flex; flex-direction:column; gap:3px; }
+.chart-controls .field label { font-size:0.6875rem; color:var(--muted); }
+.chart-controls .field select, .chart-controls .field input { font-size:0.75rem; padding:5px 8px;
+    border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); outline:none; }
+.chart-controls .field select:focus, .chart-controls .field input:focus { border-color:var(--accent); }
+
+/* Status messages */
+.status-msg { font-size:0.75rem; padding:6px 12px; border-radius:4px; margin-bottom:8px; }
+.status-msg.error { background:var(--error-bg); color:var(--red); }
+.status-msg.info { background:var(--hover-row); color:var(--muted); }
+
+/* Buttons */
+.btn-sm { font-size:0.75rem; padding:5px 14px; border-radius:4px; cursor:pointer; font-family:inherit; }
+.btn-accent { background:var(--accent); color:#fff; border:none; }
+.btn-accent:hover { background:var(--accent-hover); }
+.btn-accent:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-accent:disabled:hover { background:var(--accent); }
+.btn-outline { background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+.btn-danger { background:transparent; color:var(--red); border:1px solid var(--red); }
+.btn-danger:hover { background:var(--error-bg); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="dataApp('{{ project.id }}')" class="data-wrap" x-cloak>
+
+    <!-- Header -->
+    <div class="data-header">
+        <div>
+            <h1>数据分析与图表</h1>
+            <p>{{ project.title }}</p>
+        </div>
+        <a :href="'/projects/'+projectId" class="btn-outline btn-sm" style="text-decoration:none;">回到写作</a>
+    </div>
+
+    <!-- Status message -->
+    <div x-show="statusMsg" class="status-msg" :class="statusType" x-text="statusMsg" @click="statusMsg=''"></div>
+
+    <!-- ═══════════ SCREEN 1: Data Source Selection ═══════════ -->
+    <div x-show="!dataReady">
+        <div class="source-tabs">
+            <button class="source-tab" :class="{active:sourceTab==='upload'}" @click="sourceTab='upload'">
+                上传文件
+            </button>
+            <button class="source-tab" :class="{active:sourceTab==='sample'}" @click="sourceTab='sample'; loadSamples()">
+                示例数据集
+            </button>
+            <button class="source-tab" :class="{active:sourceTab==='paste'}" @click="sourceTab='paste'">
+                粘贴数据
+            </button>
+            <button class="source-tab" :class="{active:sourceTab==='url'}" @click="sourceTab='url'">
+                URL 导入
+            </button>
+        </div>
+
+        <!-- Upload Tab -->
+        <div x-show="sourceTab==='upload'">
+            <div class="upload-zone"
+                 :class="{dragover:dragOver}"
+                 @dragover.prevent="dragOver=true"
+                 @dragleave.prevent="dragOver=false"
+                 @drop.prevent="handleDrop($event)">
+                <div class="label">拖拽文件到此处，或点击下方按钮选择</div>
+                <div class="hint">支持 CSV、Excel (.xlsx/.xls) 格式</div>
+
+                <div class="file-input-wrap">
+                    <label class="file-input-btn">
+                        选择文件
+                        <input type="file" @change="handleFile($event)" accept=".csv,.xlsx,.xls,.txt"
+                               style="display:none;">
+                    </label>
+                    <span class="file-name" x-show="fileName" x-text="fileName"></span>
+                </div>
+            </div>
+            <div x-show="uploading" style="text-align:center; padding:12px; color:var(--muted); font-size:0.8125rem;">
+                解析中...
+            </div>
+
+            <!-- Format options -->
+            <span class="format-toggle" @click="showFormat=!showFormat">
+                <span x-text="showFormat ? '收起' : '展开'"></span>格式选项
+            </span>
+            <div class="format-panel" x-show="showFormat" x-cloak>
+                <div class="format-field">
+                    <label>文件编码</label>
+                    <select x-model="uploadEncoding">
+                        <option value="utf-8">UTF-8</option>
+                        <option value="gbk">GBK (中文)</option>
+                        <option value="gb2312">GB2312</option>
+                        <option value="latin-1">Latin-1</option>
+                    </select>
+                </div>
+                <div class="format-field">
+                    <label>分隔符</label>
+                    <select x-model="uploadDelimiter">
+                        <option value=",">逗号 (,)</option>
+                        <option value="tab">制表符 (Tab)</option>
+                        <option value=";">分号 (;)</option>
+                    </select>
+                </div>
+                <div class="format-field">
+                    <label>跳过前 N 行</label>
+                    <input type="number" x-model="uploadSkipRows" min="0" style="width:60px;">
+                </div>
+                <div class="format-field">
+                    <label>表头所在行</label>
+                    <input type="number" x-model="uploadHeaderRow" min="0" style="width:60px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Datasets Tab -->
+        <div x-show="sourceTab==='sample'">
+            <div x-show="samplesLoading" style="text-align:center; padding:24px; color:var(--muted);">加载中...</div>
+            <div class="sample-grid" x-show="!samplesLoading">
+                <template x-for="s in sampleDatasets" :key="s.key">
+                    <div class="sample-card" @click="loadSample(s.key)">
+                        <div class="title" x-text="s.name"></div>
+                        <div class="desc" x-text="s.description"></div>
+                        <span class="cat" x-text="s.category"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Paste Tab -->
+        <div x-show="sourceTab==='paste'">
+            <textarea class="paste-area" x-model="pasteText" placeholder="从 Excel / Google Sheets 复制表格数据，直接粘贴到这里..."></textarea>
+            <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+                <div class="format-field">
+                    <label>分隔符</label>
+                    <select x-model="pasteDelimiter">
+                        <option value="auto">自动检测</option>
+                        <option value="tab">制表符</option>
+                        <option value=",">逗号</option>
+                        <option value=";">分号</option>
+                    </select>
+                </div>
+                <button class="btn-accent btn-sm" @click="doPaste()" :disabled="!pasteText.trim() || pasteLoading">
+                    <span x-show="!pasteLoading">解析数据</span><span x-show="pasteLoading">解析中...</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- URL Import Tab -->
+        <div x-show="sourceTab==='url'">
+            <input class="url-input" x-model="urlImport" type="url" placeholder="输入原始 CSV 文件的 URL，如 https://example.com/data.csv">
+            <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+                <div class="format-field">
+                    <label>编码</label>
+                    <select x-model="urlEncoding">
+                        <option value="utf-8">UTF-8</option>
+                        <option value="gbk">GBK</option>
+                    </select>
+                </div>
+                <div class="format-field">
+                    <label>分隔符</label>
+                    <select x-model="urlDelimiter">
+                        <option value=",">逗号</option>
+                        <option value="tab">制表符</option>
+                        <option value=";">分号</option>
+                    </select>
+                </div>
+                <button class="btn-accent btn-sm" @click="doUrlImport()" :disabled="!urlImport.trim() || urlLoading">
+                    <span x-show="!urlLoading">获取数据</span><span x-show="urlLoading">获取中...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ SCREEN 2: Data Loaded ═══════════ -->
+    <div x-show="dataReady" class="data-layout" x-cloak>
+
+        <!-- LEFT: Data Management -->
+        <div class="data-left">
+
+            <!-- Stats Panel -->
+            <div class="dm-panel">
+                <div class="dm-panel-head" :class="{open:panelOpen==='stats'}" @click="panelOpen = panelOpen==='stats' ? '' : 'stats'">
+                    <span class="arrow" x-text="panelOpen==='stats' ? '&minus;' : '+'"></span> 统计摘要
+                    <span style="margin-left:auto; font-size:0.6875rem; color:var(--muted); font-weight:400;"
+                          x-text="'共 '+totalRows+' 行'"></span>
+                </div>
+                <div class="dm-panel-body dm-panel-scroll" x-show="panelOpen==='stats'" x-cloak>
+                    <div x-show="!stats" style="color:var(--muted); text-align:center; padding:12px;">
+                        <button class="btn-outline btn-sm" @click="loadStats()">计算统计摘要</button>
+                    </div>
+                    <template x-for="(s, col) in stats" :key="col">
+                        <div style="margin-bottom:10px;">
+                            <div style="font-weight:600; margin-bottom:4px;" x-text="col"></div>
+                            <template x-if="s.type==='numeric'">
+                                <div>
+                                    <div class="stat-row"><span class="stat-label">数量</span><span class="stat-value" x-text="s.count"></span></div>
+                                    <div class="stat-row"><span class="stat-label">缺失</span><span class="stat-value" x-text="s.missing"></span></div>
+                                    <div class="stat-row"><span class="stat-label">均值</span><span class="stat-value" x-text="s.mean"></span></div>
+                                    <div class="stat-row"><span class="stat-label">中位数</span><span class="stat-value" x-text="s.median"></span></div>
+                                    <div class="stat-row"><span class="stat-label">标准差</span><span class="stat-value" x-text="s.std"></span></div>
+                                    <div class="stat-row"><span class="stat-label">最小值</span><span class="stat-value" x-text="s.min"></span></div>
+                                    <div class="stat-row"><span class="stat-label">最大值</span><span class="stat-value" x-text="s.max"></span></div>
+                                    <div class="stat-row"><span class="stat-label">Q1 / Q3</span><span class="stat-value" x-text="s.q1 + ' / ' + s.q3"></span></div>
+                                </div>
+                            </template>
+                            <template x-if="s.type==='text'">
+                                <div>
+                                    <div class="stat-row"><span class="stat-label">数量</span><span class="stat-value" x-text="s.count"></span></div>
+                                    <div class="stat-row"><span class="stat-label">缺失</span><span class="stat-value" x-text="s.missing"></span></div>
+                                    <div class="stat-row"><span class="stat-label">唯一值</span><span class="stat-value" x-text="s.unique"></span></div>
+                                    <div style="font-size:0.6875rem; color:var(--muted); margin-top:2px;"
+                                         x-text="'Top: ' + (s.top_values||[]).slice(0,3).join(', ')"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Preprocess Panel -->
+            <div class="dm-panel">
+                <div class="dm-panel-head" :class="{open:panelOpen==='preprocess'}"
+                     @click="panelOpen = panelOpen==='preprocess' ? '' : 'preprocess'">
+                    <span class="arrow" x-text="panelOpen==='preprocess' ? '&minus;' : '+'"></span> 数据预处理
+                </div>
+                <div class="dm-panel-body dm-panel-scroll" x-show="panelOpen==='preprocess'" x-cloak>
+                    <!-- Missing values -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:0.75rem; font-weight:600; margin-bottom:6px;">缺失值处理</div>
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            <select x-model="ppMissingMethod" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:90px;">
+                                <option value="drop">删除行</option>
+                                <option value="mean">填均值</option>
+                                <option value="median">填中位数</option>
+                                <option value="mode">填众数</option>
+                            </select>
+                            <select x-model="ppMissingCol" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:120px;">
+                                <option value="">全部列</option>
+                                <template x-for="c in columns" :key="c">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+                            <button class="btn-outline btn-sm" @click="applyPreprocess('drop_missing')">执行</button>
+                        </div>
+                    </div>
+
+                    <!-- Normalize -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:0.75rem; font-weight:600; margin-bottom:6px;">数值标准化</div>
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            <select x-model="ppNormMethod" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:90px;">
+                                <option value="zscore">Z-Score</option>
+                                <option value="minmax">Min-Max</option>
+                                <option value="log">Log 变换</option>
+                            </select>
+                            <select x-model="ppNormCol" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:120px;">
+                                <template x-for="c in numericCols" :key="c">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+                            <button class="btn-outline btn-sm" @click="applyPreprocess('normalize')">执行</button>
+                        </div>
+                    </div>
+
+                    <!-- Filter -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:0.75rem; font-weight:600; margin-bottom:6px;">条件筛选</div>
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            <select x-model="ppFilterCol" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:100px;">
+                                <template x-for="c in columns" :key="c">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+                            <select x-model="ppFilterOp" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:70px;">
+                                <option value="eq">=</option>
+                                <option value="neq">!=</option>
+                                <option value="gt">&gt;</option>
+                                <option value="gte">&gt;=</option>
+                                <option value="lt">&lt;</option>
+                                <option value="lte">&lt;=</option>
+                                <option value="contains">包含</option>
+                            </select>
+                            <input type="text" x-model="ppFilterVal" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:80px;" placeholder="值">
+                            <button class="btn-outline btn-sm" @click="applyPreprocess('filter')">筛选</button>
+                        </div>
+                    </div>
+
+                    <!-- Sort -->
+                    <div style="margin-bottom:8px;">
+                        <div style="font-size:0.75rem; font-weight:600; margin-bottom:6px;">排序</div>
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            <select x-model="ppSortCol" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:100px;">
+                                <template x-for="c in columns" :key="c">
+                                    <option :value="c" x-text="c"></option>
+                                </template>
+                            </select>
+                            <select x-model="ppSortAsc" style="font-size:0.75rem; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); width:70px;">
+                                <option value="true">升序</option>
+                                <option value="false">降序</option>
+                            </select>
+                            <button class="btn-outline btn-sm" @click="applyPreprocess('sort')">排序</button>
+                        </div>
+                    </div>
+
+                    <!-- Undo -->
+                    <div style="padding-top:8px; border-top:1px solid var(--border);">
+                        <button class="btn-outline btn-sm" @click="undoPreprocess()"
+                                x-show="preprocessHistory.length > 0">撤销上一步</button>
+                        <span style="font-size:0.6875rem; color:var(--muted); margin-left:8px;"
+                              x-text="'已执行 '+preprocessHistory.length+' 步'"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Preview Panel -->
+            <div class="dm-panel">
+                <div class="dm-panel-head" :class="{open:panelOpen==='preview'}"
+                     @click="panelOpen = panelOpen==='preview' ? '' : 'preview'">
+                    <span class="arrow" x-text="panelOpen==='preview' ? '&minus;' : '+'"></span> 数据预览
+                    <span style="margin-left:auto; font-size:0.6875rem; color:var(--muted); font-weight:400;"
+                          x-text="'前 ' + Math.min(rows.length, 20) + ' 行'"></span>
+                </div>
+                <div class="dm-panel-body dm-panel-scroll" x-show="panelOpen==='preview'" style="max-height:260px; padding:0;" x-cloak>
+                    <div style="max-height:240px; overflow:auto;">
+                        <table style="font-size:0.6875rem; width:100%; border-collapse:collapse;">
+                            <tr>
+                                <th style="padding:4px 8px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border);">#</th>
+                                <template x-for="c in columns" :key="c">
+                                    <th style="padding:4px 8px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap;" x-text="c"></th>
+                                </template>
+                            </tr>
+                            <template x-for="(row, ri) in rows.slice(0, 20)" :key="ri">
+                                <tr>
+                                    <td style="padding:3px 8px; color:var(--muted); border-bottom:1px solid var(--border-hair);" x-text="ri+1"></td>
+                                    <template x-for="(v, ci) in row" :key="ci">
+                                        <td style="padding:3px 8px; max-width:120px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; border-bottom:1px solid var(--border-hair);" x-text="v"></td>
+                                    </template>
+                                </tr>
+                            </template>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Data Summary Panel -->
+            <div class="dm-panel">
+                <div class="dm-panel-head" :class="{open:panelOpen==='aisummary'}"
+                     @click="panelOpen = panelOpen==='aisummary' ? '' : 'aisummary'">
+                    <span class="arrow" x-text="panelOpen==='aisummary' ? '&minus;' : '+'"></span> AI 数据总结
+                    <span style="margin-left:auto;">
+                        <button @click.stop="aiAnalyze()" :disabled="aiLoading" class="btn-accent btn-sm" style="font-size:0.6875rem; padding:3px 10px;">
+                            <span x-show="!aiLoading">开始分析</span>
+                            <span x-show="aiLoading">分析中...</span>
+                        </button>
+                    </span>
+                </div>
+                <div class="dm-panel-body" x-show="panelOpen==='aisummary'" x-cloak>
+                    <!-- Loading -->
+                    <div x-show="aiLoading" style="font-size:0.75rem; color:var(--muted); padding:8px 0;">
+                        <span x-text="aiStreamText || '正在计算统计特征并调用 AI 分析...'"></span>
+                    </div>
+                    <!-- Error -->
+                    <div x-show="aiError" style="font-size:0.75rem; color:var(--red); padding:4px 0;" x-text="aiError"></div>
+                    <!-- Result -->
+                    <template x-if="aiSummary && !aiLoading">
+                    <div>
+                        <div style="font-size:0.75rem; padding:6px 8px; margin-bottom:6px; background:var(--hover-row); border-radius:4px; line-height:1.5;"
+                             x-text="aiSummary.overview"></div>
+                        <!-- Stats table -->
+                        <div style="max-height:300px; overflow:auto; margin-bottom:8px;">
+                            <table style="font-size:0.6875rem; width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">字段名</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">类型</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">计数</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">缺失</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">集中趋势</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">离散程度</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">范围</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--card);">异常值</th>
+                                        <th style="padding:4px 6px; text-align:left; color:var(--muted); border-bottom:1px solid var(--border); min-width:130px; position:sticky; top:0; background:var(--card);">AI 评语</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="row in aiSummary.table_rows" :key="row[0]">
+                                        <tr style="border-bottom:1px solid var(--border-hair);">
+                                            <td style="padding:3px 6px; font-weight:600; white-space:nowrap;" x-text="row[0]"></td>
+                                            <td style="padding:3px 6px;">
+                                                <span class="type-badge" :class="row[1]==='数值' ? 'numeric' : 'text'" x-text="row[1]"></span>
+                                            </td>
+                                            <td style="padding:3px 6px; white-space:nowrap;" x-text="row[2]"></td>
+                                            <td style="padding:3px 6px; white-space:nowrap;" x-text="row[3]"></td>
+                                            <td style="padding:3px 6px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" x-text="row[4]"></td>
+                                            <td style="padding:3px 6px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" x-text="row[5]"></td>
+                                            <td style="padding:3px 6px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" x-text="row[6]"></td>
+                                            <td style="padding:3px 6px; max-width:60px; white-space:nowrap;" x-text="row[7]"></td>
+                                            <td style="padding:3px 6px; max-width:150px; line-height:1.4; color:var(--muted);" x-text="row[8]"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Suggestions -->
+                        <div x-show="aiSummary.suggestions && aiSummary.suggestions.length" style="margin-bottom:8px; padding:6px 8px; border-top:1px solid var(--border);">
+                            <div style="font-size:0.6875rem; font-weight:600; margin-bottom:4px;">分析建议</div>
+                            <ul style="font-size:0.6875rem; margin:0; padding-left:1.2em; line-height:1.5;">
+                                <template x-for="s in aiSummary.suggestions" :key="s">
+                                    <li x-text="s"></li>
+                                </template>
+                            </ul>
+                        </div>
+                        <!-- Chart recommendation -->
+                        <template x-if="aiSummary.chart">
+                        <div style="margin-bottom:8px; padding:6px 8px; border-top:1px solid var(--border);">
+                            <div style="font-size:0.6875rem; font-weight:600; margin-bottom:4px;">AI 推荐图表</div>
+                            <div style="font-size:0.6875rem; line-height:1.6;">
+                                <span class="type-badge numeric" x-text="aiSummary.chart.type" style="margin-right:6px;"></span>
+                                <span x-text="'X: ' + aiSummary.chart.x_col + ' | Y: ' + aiSummary.chart.y_col" style="margin-right:6px;"></span>
+                                <span x-show="aiSummary.chart.title" x-text="'标题: ' + aiSummary.chart.title" style="display:block; margin-top:2px; color:var(--muted);"></span>
+                                <span x-show="aiSummary.chart.reason" x-text="aiSummary.chart.reason" style="display:block; margin-top:2px; color:var(--muted); font-style:italic;"></span>
+                            </div>
+                        </div>
+                        </template>
+                        <!-- Use as chart data button -->
+                        <button @click="useAiTableForChart()" class="btn-outline btn-sm" style="width:100%; font-size:0.6875rem;">
+                            使用此数据生成图表
+                        </button>
+                    </div>
+                    </template>
+                    <!-- Empty state -->
+                    <div x-show="!aiSummary && !aiLoading && !aiError"
+                         style="font-size:0.75rem; color:var(--muted); text-align:center; padding:12px;">
+                        点击「开始分析」计算统计特征并由 AI 评估每列数据
+                    </div>
+                </div>
+            </div>
+
+            <!-- New data button -->
+            <button class="btn-outline btn-sm" @click="resetData()" style="width:100%;">
+                重新选择数据源
+            </button>
+        </div>
+
+        <!-- RIGHT: Chart -->
+        <div class="data-right">
+            <div class="dm-panel" style="margin-bottom:16px;">
+                <div class="dm-panel-head" style="cursor:default;">图表设置</div>
+                <div class="dm-panel-body">
+                    <div class="chart-controls">
+                        <div class="field">
+                            <label>图表类型</label>
+                            <select x-model="chartType" @change="genChart()">
+                                <optgroup label="基础图表">
+                                    <option value="bar">柱状图</option>
+                                    <option value="hbar">水平柱状图</option>
+                                    <option value="line">折线图</option>
+                                    <option value="area">面积图</option>
+                                    <option value="scatter">气泡散点图</option>
+                                    <option value="pie">饼图</option>
+                                    <option value="donut">环形图</option>
+                                </optgroup>
+                                <optgroup label="统计图表">
+                                    <option value="histogram">直方图</option>
+                                    <option value="box">箱线图</option>
+                                    <option value="stacked_bar">堆叠柱状图</option>
+                                    <option value="radar">雷达图</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>X 轴 (分类/标签)</label>
+                            <select x-model="xCol" @change="genChart()">
+                                <template x-for="c in columns" :key="c">
+                                    <option :value="c" x-text="c + (types[c]==='numeric' ? ' (N)' : '')"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Y 轴 (数值)</label>
+                            <select x-model="yCol" @change="genChart()">
+                                <template x-for="c in columns" :key="c">
+                                    <option :value="c" x-text="c + (types[c]==='numeric' ? ' (N)' : '')"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>期刊风格</label>
+                            <select x-model="theme" @change="genChart()">
+                                <option value="default">默认风格</option>
+                                <option value="nature">Nature 配色</option>
+                                <option value="ieee">IEEE 配色</option>
+                                <option value="apa">APA 配色</option>
+                            </select>
+                        </div>
+                        <div class="field" style="grid-column:1/-1;">
+                            <label>图表标题</label>
+                            <input type="text" x-model="chartTitle" @keyup.enter="genChart()" placeholder="留空则自动生成">
+                        </div>
+                        <div class="field">
+                            <label>X 轴数据点数</label>
+                            <input type="number" x-model="maxPoints" @change="genChart()" min="2" max="50" placeholder="10">
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:8px; margin-top:12px;">
+                        <button @click="recommend(); genChart()" class="btn-outline btn-sm" style="flex:1;">
+                            智能推荐图表
+                        </button>
+                        <button @click="genChart()" class="btn-accent btn-sm" style="flex:1;">生成图表</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Output -->
+            <div class="dm-panel">
+                <div class="dm-panel-head" style="cursor:default; display:flex; align-items:center; justify-content:space-between;">
+                    <span>图表输出</span>
+                    <div style="position:relative;">
+                        <button @click="showExportMenu=!showExportMenu" :disabled="!chartImage"
+                                class="btn-accent btn-sm" style="padding:3px 10px;">
+                            导出 ▾
+                        </button>
+                        <div x-show="showExportMenu" @click.away="showExportMenu=false" x-cloak
+                             style="position:absolute; top:110%; right:0; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:4px; z-index:100; min-width:100px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                            <button @click="exportChart('png'); showExportMenu=false"
+                                    style="display:block; width:100%; padding:6px 12px; border:none; background:transparent; color:var(--text); font-size:0.75rem; cursor:pointer; text-align:left; border-radius:4px;"
+                                    @mouseenter="$el.style.background='var(--hover-row)'"
+                                    @mouseleave="$el.style.background='transparent'">
+                                PNG 图片
+                            </button>
+                            <button @click="exportChart('svg'); showExportMenu=false"
+                                    style="display:block; width:100%; padding:6px 12px; border:none; background:transparent; color:var(--text); font-size:0.75rem; cursor:pointer; text-align:left; border-radius:4px;"
+                                    @mouseenter="$el.style.background='var(--hover-row)'"
+                                    @mouseleave="$el.style.background='transparent'">
+                                SVG 矢量图
+                            </button>
+                            <button @click="exportChart('pdf'); showExportMenu=false"
+                                    style="display:block; width:100%; padding:6px 12px; border:none; background:transparent; color:var(--text); font-size:0.75rem; cursor:pointer; text-align:left; border-radius:4px;"
+                                    @mouseenter="$el.style.background='var(--hover-row)'"
+                                    @mouseleave="$el.style.background='transparent'">
+                                PDF 文档
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div style="min-height:380px; padding:16px; background:var(--bg);">
+                    <div x-show="!chartImage && !generating" style="display:flex; align-items:center; justify-content:center; height:380px; color:var(--muted); text-align:center; font-size:0.8125rem;">
+                        <div>
+                            <div style="margin-bottom:6px;">选择列后点击「生成图表」</div>
+                            <div style="font-size:0.75rem;">或点击「智能推荐图表」自动选择最佳类型</div>
+                        </div>
+                    </div>
+                    <div x-show="generating" style="display:flex; align-items:center; justify-content:center; height:380px; color:var(--muted); font-size:0.8125rem;">生成中...</div>
+                    <div x-show="chartImage" style="display:flex; flex-direction:column; align-items:center;">
+                        <img :src="'data:image/png;base64,'+chartImage"
+                             style="max-width:100%; border-radius:4px;"
+                             @load="generating=false" @error="generating=false">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dataApp(projectId) {
+    return {
+        projectId,
+        // Data source
+        sourceTab: 'upload',
+        dataReady: false,
+
+        // Upload
+        dragOver: false,
+        uploading: false,
+        fileName: '',
+        showFormat: false,
+        uploadEncoding: 'utf-8',
+        uploadDelimiter: ',',
+        uploadSkipRows: 0,
+        uploadHeaderRow: 0,
+
+        // Samples
+        sampleDatasets: [],
+        samplesLoading: false,
+
+        // Paste
+        pasteText: '',
+        pasteDelimiter: 'auto',
+        pasteLoading: false,
+
+        // URL
+        urlImport: '',
+        urlEncoding: 'utf-8',
+        urlDelimiter: ',',
+        urlLoading: false,
+
+        // Data
+        columns: [], rows: [], types: {}, totalRows: 0, allRows: [],
+        stats: null,
+
+        // Panels
+        panelOpen: '',
+
+        // Preprocess
+        ppMissingMethod: 'drop', ppMissingCol: '',
+        ppNormMethod: 'zscore', ppNormCol: '',
+        ppFilterCol: '', ppFilterOp: 'eq', ppFilterVal: '',
+        ppSortCol: '', ppSortAsc: 'true',
+        preprocessHistory: [],
+
+        // Chart
+        chartType: 'bar', xCol: '', yCol: '', theme: 'default', maxPoints: 10,
+        chartImage: '', chartTitle: '', generating: false, showExportMenu: false,
+
+        // AI summary
+        aiLoading: false, aiStreamText: '', aiSummary: null, aiError: '',
+
+        // Status
+        statusMsg: '', statusType: 'info',
+
+        // Computed
+        get numericCols() {
+            var self = this;
+            return this.columns.filter(function(c) { return self.types[c] === 'numeric'; });
+        },
+
+        init() {
+            // nothing needed
+        },
+
+        // ── Helpers ──
+        setStatus(msg, type) {
+            this.statusMsg = msg; this.statusType = type || 'info';
+            if (type !== 'error') setTimeout(() => { this.statusMsg = ''; }, 3000);
+        },
+
+        setData(result) {
+            if (result.error) { this.setStatus(result.error, 'error'); return; }
+            this.columns = result.columns || [];
+            this.rows = result.rows || [];
+            this.types = result.types || {};
+            this.totalRows = result.total_rows || 0;
+            this.allRows = result.all_rows || result.rows || [];
+            // Smart defaults: first text col → X, first numeric col → Y
+            var cols = this.columns;
+            var types = this.types;
+            var textCols = cols.filter(function(c) { return types[c] !== 'numeric'; });
+            var numCols = cols.filter(function(c) { return types[c] === 'numeric'; });
+            this.xCol = (textCols.length > 0 ? textCols[0] : cols[0]) || '';
+            this.yCol = (numCols.length > 0 ? numCols[0] : cols[1] || cols[0]) || '';
+            if (this.xCol === this.yCol) {
+                this.yCol = numCols.length > 1 ? numCols[1] : (cols[1] || '');
+            }
+            this.chartImage = '';
+            this.stats = null;
+            this.preprocessHistory = [];
+            // Save original data for AI analysis (never overwritten by chart data)
+            this._origColumns = this.columns.slice();
+            this._origRows = this.allRows.slice();
+            this._origTypes = Object.assign({}, this.types);
+            this._origTotalRows = this.totalRows;
+            this.dataReady = true;
+            this.panelOpen = 'preview';
+            this.recommend();
+            this.genChart();
+            this.setStatus('已加载 ' + this.totalRows + ' 行数据');
+        },
+
+        resetData() {
+            this.dataReady = false;
+            this.columns = []; this.rows = []; this.types = {}; this.totalRows = 0;
+            this.allRows = []; this.chartImage = ''; this.stats = null;
+            this.preprocessHistory = []; this.panelOpen = '';
+            this.fileName = '';
+            this.aiSummary = null; this.aiStreamText = ''; this.aiError = ''; this.aiLoading = false;
+            this._origColumns = null; this._origRows = null; this._origTypes = null; this._origTotalRows = null;
+        },
+
+        // ── File Upload ──
+        async handleFile(e) {
+            var file = e.target.files[0]; if (!file) return;
+            this.fileName = file.name;
+            this.doUpload(file);
+        },
+
+        async handleDrop(e) {
+            this.dragOver = false;
+            var files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.fileName = files[0].name;
+                await this.doUpload(files[0]);
+            }
+        },
+
+        async doUpload(file) {
+            this.uploading = true;
+            var form = new FormData(); form.append('file', file);
+            form.append('encoding', this.uploadEncoding);
+            form.append('delimiter', this.uploadDelimiter);
+            form.append('skip_rows', this.uploadSkipRows);
+            form.append('header_row', this.uploadHeaderRow);
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/upload', {method:'POST', body:form});
+                var d = await r.json();
+                this.setData(d);
+            } catch(e) { this.setStatus('上传失败: ' + e.message, 'error'); }
+            this.uploading = false;
+        },
+
+        // ── Samples ──
+        async loadSamples() {
+            if (this.sampleDatasets.length > 0) return;
+            this.samplesLoading = true;
+            try {
+                var r = await fetch('/api/data/samples');
+                var d = await r.json();
+                this.sampleDatasets = d.samples || [];
+            } catch(e) {}
+            this.samplesLoading = false;
+        },
+
+        async loadSample(key) {
+            this.uploading = true;
+            try {
+                var r = await fetch('/api/data/samples/' + key);
+                var d = await r.json();
+                this.setData(d);
+            } catch(e) { this.setStatus('加载失败: ' + e.message, 'error'); }
+            this.uploading = false;
+        },
+
+        // ── Paste ──
+        async doPaste() {
+            this.pasteLoading = true;
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/paste', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({text: this.pasteText, delimiter: this.pasteDelimiter})
+                });
+                var d = await r.json();
+                this.setData(d);
+            } catch(e) { this.setStatus('解析失败: ' + e.message, 'error'); }
+            this.pasteLoading = false;
+        },
+
+        // ── URL Import ──
+        async doUrlImport() {
+            this.urlLoading = true;
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/url-import', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({url: this.urlImport, encoding: this.urlEncoding, delimiter: this.urlDelimiter})
+                });
+                var d = await r.json();
+                this.setData(d);
+            } catch(e) { this.setStatus('导入失败: ' + e.message, 'error'); }
+            this.urlLoading = false;
+        },
+
+        // ── Stats ──
+        async loadStats() {
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/stats', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({columns:this.columns, rows:this.rows, types:this.types,
+                                         all_rows: this.allRows, total_rows: this.totalRows})
+                });
+                var d = await r.json();
+                this.stats = d.stats || {};
+            } catch(e) { this.setStatus('计算失败: ' + e.message, 'error'); }
+        },
+
+        // ── Preprocess ──
+        async applyPreprocess(type) {
+            var ops = [];
+            if (type === 'drop_missing') {
+                ops.push({op: 'drop_missing', columns: this.ppMissingCol ? [this.ppMissingCol] : [],
+                          method: this.ppMissingMethod === 'drop' ? 'drop' : this.ppMissingMethod});
+                if (this.ppMissingMethod !== 'drop') {
+                    ops = [{op: 'fill_missing', columns: this.ppMissingCol ? [this.ppMissingCol] : [],
+                            method: this.ppMissingMethod}];
+                }
+            } else if (type === 'normalize') {
+                ops.push({op: 'normalize', columns: [this.ppNormCol], method: this.ppNormMethod});
+            } else if (type === 'filter') {
+                if (!this.ppFilterCol || !this.ppFilterVal) return;
+                ops.push({op: 'filter', column: this.ppFilterCol, operator: this.ppFilterOp, value: this.ppFilterVal});
+            } else if (type === 'sort') {
+                if (!this.ppSortCol) return;
+                ops.push({op: 'sort', column: this.ppSortCol, ascending: this.ppSortAsc === 'true'});
+            }
+
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/preprocess', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({
+                        data: {columns:this.columns, rows:this.rows, types:this.types,
+                               all_rows: this.allRows},
+                        operations: ops
+                    })
+                });
+                var d = await r.json();
+                if (d.error) { this.setStatus(d.error, 'error'); return; }
+                this.preprocessHistory.push({before: this.totalRows, ops: ops});
+                this.columns = d.columns || this.columns;
+                this.rows = d.rows || [];
+                this.types = d.types || this.types;
+                this.totalRows = d.total_rows || 0;
+                this.allRows = d.all_rows || [];
+                this.stats = d.stats || null;
+                this.chartImage = '';
+                this.genChart();
+                this.setStatus('预处理完成，剩余 ' + this.totalRows + ' 行');
+            } catch(e) { this.setStatus('预处理失败: ' + e.message, 'error'); }
+        },
+
+        undoPreprocess() {
+            this.setStatus('请重新加载数据以撤销所有操作。提示：点击底部「重新选择数据源」按钮。', 'info');
+        },
+
+        // ── Chart ──
+        async recommend() {
+            if (!this.xCol || !this.yCol) return;
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/recommend', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({columns:this.columns, rows:this.rows,
+                                         x_col:this.xCol, y_col:this.yCol})
+                });
+                if (r.ok) {
+                    var d = await r.json();
+                    if (d.recommended && d.recommended !== this.chartType) this.chartType = d.recommended;
+                }
+            } catch(e) {}
+        },
+
+        async genChart() {
+            if (!this.xCol || !this.yCol) return;
+            this.generating = true;
+            try {
+                var body = JSON.stringify({
+                    columns:this.columns, rows:this.allRows,
+                    chart_type:this.chartType, x_col:this.xCol, y_col:this.yCol,
+                    theme:this.theme, title:this.chartTitle,
+                    max_points: this.maxPoints || 0
+                });
+                var r = await fetch('/api/projects/' + this.projectId + '/data/chart', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: body
+                });
+                if (!r.ok) {
+                    var errText = await r.text();
+                    console.error('Chart API error:', r.status, errText);
+                    this.setStatus('图表生成失败 (' + r.status + '): ' + errText.slice(0, 300), 'error');
+                    this.generating = false;
+                    return;
+                }
+                var d = await r.json();
+                if (d.error) { this.setStatus('图表生成失败: ' + d.error, 'error'); }
+                this.chartImage = d.image || '';
+            } catch(e) {
+                console.error('Chart fetch error:', e);
+                this.chartImage = ''; this.setStatus('图表生成失败: ' + e.message, 'error');
+            }
+            this.generating = false;
+        },
+
+        async exportChart(fmt) {
+            fmt = fmt || 'png';
+            var fn = (this.chartTitle || 'chart') + '.' + fmt;
+            if (fmt === 'png') {
+                if (!this.chartImage) return;
+                var a = document.createElement('a');
+                a.href = 'data:image/png;base64,' + this.chartImage;
+                a.download = fn;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return;
+            }
+            // SVG / PDF — call backend to regenerate in requested format
+            try {
+                var r = await fetch('/api/projects/' + this.projectId + '/data/chart', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        columns: this.columns, rows: this.allRows,
+                        chart_type: this.chartType, x_col: this.xCol, y_col: this.yCol,
+                        theme: 'default', title: this.chartTitle,
+                        format: fmt
+                    })
+                });
+                if (!r.ok) { this.setStatus('导出失败: ' + r.status, 'error'); return; }
+                var d = await r.json();
+                if (d.error) { this.setStatus('导出失败: ' + d.error, 'error'); return; }
+                var a = document.createElement('a');
+                a.href = 'data:image/' + fmt + ';base64,' + d.image;
+                a.download = fn;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch(e) { this.setStatus('导出失败: ' + e.message, 'error'); }
+        },
+
+        // ── AI ──
+        async aiAnalyze() {
+            if (this.aiLoading || !this.columns.length) return;
+            this.aiLoading = true; this.aiStreamText = ''; this.aiSummary = null; this.aiError = '';
+            this.panelOpen = 'aisummary';
+
+            // Always use original data for AI analysis (not chart data)
+            var srcCols = this._origColumns || this.columns;
+            var srcRows = this._origRows || this.allRows;
+            var srcTypes = this._origTypes || this.types;
+            var srcTotal = this._origTotalRows || this.totalRows;
+
+            // Step 1: Compute column statistics
+            var stats = null;
+            try {
+                var sr = await fetch('/api/projects/' + this.projectId + '/data/stats', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({columns:srcCols, rows:srcRows.slice(0, 20), types:srcTypes,
+                                         all_rows: srcRows, total_rows: srcTotal})
+                });
+                var sd = await sr.json();
+                stats = sd.stats || {};
+                this._rawStats = stats;
+            } catch(e) { this.aiError = '统计计算失败: ' + e.message; this.aiLoading = false; return; }
+
+            // Step 2: Auto-select chart axes and generate initial chart
+            // Clean BOM characters from column names
+            var cleanName = function(n) { return (n||'').replace(/^﻿/, ''); };
+            var textCols = [], numCols = [];
+            srcCols.forEach(function(col) {
+                var s = stats[col];
+                if (s && s.type === 'numeric') numCols.push(col);
+                else if (s && s.type === 'text') textCols.push(col);
+            });
+            // Find numeric columns with few unique values that can serve as X
+            if (textCols.length === 0 && numCols.length >= 2) {
+                var bestCat = null, bestUniq = Infinity;
+                numCols.forEach(function(c) {
+                    var ci = srcCols.indexOf(c);
+                    var vals = {};
+                    srcRows.forEach(function(r) {
+                        if (ci < r.length) {
+                            var v = r[ci];
+                            if (v !== null && v !== undefined) vals[String(v)] = true;
+                        }
+                    });
+                    var nUniq = Object.keys(vals).length;
+                    if (nUniq < bestUniq && nUniq <= 15) {
+                        bestUniq = nUniq; bestCat = c;
+                    }
+                });
+                if (bestCat) {
+                    textCols.push(bestCat);
+                    numCols = numCols.filter(function(c) { return c !== bestCat; });
+                }
+            }
+            // Score text columns for X: prefer meaningful categories (2-12 unique values, shorter name)
+            var bestX = textCols[0], bestXScore = -1;
+            textCols.forEach(function(c) {
+                var ci = srcCols.indexOf(c);
+                var vals = {};
+                srcRows.forEach(function(r) { if (ci < r.length) vals[String(r[ci])] = true; });
+                var uniq = Object.keys(vals).length;
+                var score = 0;
+                if (uniq >= 2 && uniq <= 7) score += 10;  // ideal for bar charts
+                else if (uniq <= 15) score += 5;           // workable
+                else if (uniq <= 50) score += 1;           // line chart territory
+                score += Math.max(0, 15 - c.length);       // prefer shorter names
+                if (score > bestXScore) { bestXScore = score; bestX = c; }
+            });
+            var autoX = bestX || srcCols[0] || '';
+            var autoY = numCols[0] || srcCols[1] || srcCols[0] || '';
+            // Pick best Y: prefer column with outliers or high CV
+            if (numCols.length > 1) {
+                var bestY = numCols[0], bestScore = -1;
+                numCols.forEach(function(c) {
+                    var s = stats[c];
+                    var score = (s.outliers || 0) * 10 + (s.cv || 0) * 5 + (Math.abs(s.max - s.min) / (Math.abs(s.mean) || 1)) * 2;
+                    if (score > bestScore) { bestScore = score; bestY = c; }
+                });
+                autoY = bestY;
+            }
+            // Ensure X != Y when possible
+            if (autoX === autoY && srcCols.length > 1) {
+                for (var ai = 0; ai < srcCols.length; ai++) {
+                    if (srcCols[ai] !== autoX) { autoY = srcCols[ai]; break; }
+                }
+            }
+            // Chart type based on X uniqueness
+            var xci = srcCols.indexOf(autoX);
+            var xVals = {};
+            srcRows.forEach(function(r) { if (xci < r.length) xVals[String(r[xci])] = true; });
+            var uniqX = Object.keys(xVals).length;
+            var isNumX = srcTypes[autoX] === 'numeric';
+            var isNumY = srcTypes[autoY] === 'numeric';
+            var autoChart;
+            // Two numeric columns → show relationship with scatter
+            if (isNumX && isNumY && uniqX > 15 && numCols.length >= 2) autoChart = 'scatter';
+            else if (isNumX && uniqX > 15) autoChart = 'scatter';
+            else if (isNumX && uniqX > 8) autoChart = 'line';
+            else if (uniqX <= 5) autoChart = 'bar';
+            else if (uniqX <= 12) autoChart = 'bar';
+            else autoChart = 'hbar';
+            // Intelligent title
+            var cleanAutoX = cleanName(autoX), cleanAutoY = cleanName(autoY);
+            var autoTitle;
+            if (uniqX <= 5 && uniqX >= 2) {
+                autoTitle = '各' + cleanAutoX + '的' + cleanAutoY + '对比';
+            } else if (uniqX <= 12) {
+                autoTitle = cleanAutoY + '按' + cleanAutoX + '分布';
+            } else if (isNumX && isNumY) {
+                autoTitle = cleanAutoY + '与' + cleanAutoX + '关系图';
+            } else {
+                autoTitle = cleanAutoY + '与' + cleanAutoX + '关系图';
+            }
+
+            // Apply auto selections — ensure genChart uses original data
+            if (autoX && srcCols.indexOf(autoX) >= 0) this.xCol = autoX;
+            if (autoY && srcCols.indexOf(autoY) >= 0) this.yCol = autoY;
+            this.chartType = autoChart;
+            this.chartTitle = autoTitle;
+            // Restore original data before chart gen (in case user previously clicked "使用此数据生成图表")
+            this.columns = srcCols.slice();
+            this.allRows = srcRows.map(function(r) { return r.slice(); });
+            this.types = Object.assign({}, srcTypes);
+            this.totalRows = srcTotal;
+            var self = this;
+            setTimeout(function() { self.genChart(); }, 50);
+
+            // Step 3: Build table rows from stats
+            var tableCols = ['字段名', '类型', '计数', '缺失', '集中趋势', '离散程度', '范围', '异常值', 'AI 评语'];
+            var tableRows = [];
+            srcCols.forEach(function(col) {
+                var s = stats[col];
+                if (!s || s.type === 'empty') {
+                    tableRows.push([col, '空', '0', '0', '-', '-', '-', '-', '无数据']);
+                    return;
+                }
+                if (s.type === 'numeric') {
+                    var cvPct = s.cv ? Math.round(s.cv * 100) : 0;
+                    var outInfo = '无';
+                    if ((s.outliers || 0) > 0) {
+                        var outVals = (s.outlier_values || []).slice(0, 3).join(', ');
+                        outInfo = s.outliers + ' 个' + (outVals ? ' [' + outVals + ']' : '');
+                    }
+                    var missInfo = String(s.missing || 0);
+                    if (s.nan_count > 0) missInfo += ' (NaN:' + s.nan_count + ')';
+                    tableRows.push([
+                        col, '数值', String(s.count), missInfo,
+                        '均值 ' + s.mean, '标准差 ' + s.std + (cvPct > 30 ? ' ⚠CV:' + cvPct + '%' : ''),
+                        String(s.min) + ' ~ ' + String(s.max),
+                        outInfo,
+                        '加载中...'
+                    ]);
+                } else {
+                    var tops = (s.top_values || []).slice(0, 2).join(', ');
+                    tableRows.push([
+                        col, '文本', String(s.count), String(s.missing || 0),
+                        String(s.unique) + ' 个唯一值',
+                        tops ? 'Top: ' + tops : '-',
+                        '-',
+                        '-',
+                        '加载中...'
+                    ]);
+                }
+            });
+
+            // Show table + auto chart recommendation immediately
+            this.aiSummary = {
+                overview: '正在调用 AI 生成评语...',
+                table_cols: tableCols,
+                table_rows: tableRows,
+                suggestions: [],
+                chart: {type: autoChart, x_col: autoX, y_col: autoY, title: autoTitle, reason: '自动推荐（AI 分析后将优化）'}
+            };
+
+            // Step 3: Call AI for evaluations
+            this.aiStreamText = '正在调用 AI 分析...';
+            try {
+                var ar = await fetch('/api/projects/' + this.projectId + '/data/analyze', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({columns:srcCols, rows:srcRows,
+                                         types:srcTypes, total_rows: srcTotal})
+                });
+                if (!ar.ok) {
+                    var et = await ar.text();
+                    try { var ej = JSON.parse(et); throw new Error(ej.detail || et); }
+                    catch(e2) { if (e2.message !== et) throw e2; throw new Error(et.slice(0, 200)); }
+                }
+                var reader = ar.body.getReader(), decoder = new TextDecoder(), buffer = '';
+                while (true) {
+                    var {done, value} = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, {stream:true});
+                    var lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (var li = 0; li < lines.length; li++) {
+                        var line = lines[li].trim();
+                        if (!line.startsWith('data: ')) continue;
+                        try {
+                            var d = JSON.parse(line.slice(6));
+                            if (d.text) this.aiStreamText += d.text;
+                            if (d.done && d.full) {
+                                var evals = null;
+                                try { evals = JSON.parse(d.full); }
+                                catch(e) {
+                                    var m = d.full.match(/\{[\s\S]*\}/);
+                                    if (m) { try { evals = JSON.parse(m[0]); } catch(e2) {} }
+                                }
+                                if (evals && evals.overview) {
+                                    var evalMap = evals.evaluations || {};
+                                    for (var ri2 = 0; ri2 < tableRows.length; ri2++) {
+                                        var colName = tableRows[ri2][0];
+                                        if (evalMap[colName]) tableRows[ri2][8] = evalMap[colName];
+                                        else if (!tableRows[ri2][8] || tableRows[ri2][8] === '加载中...') tableRows[ri2][8] = '-';
+                                    }
+                                    var chartRec = evals.chart || null;
+                                    this.aiSummary = {
+                                        overview: evals.overview,
+                                        table_cols: tableCols,
+                                        table_rows: tableRows,
+                                        suggestions: evals.suggestions || [],
+                                        chart: chartRec
+                                    };
+                                    // AI chart recommendation overrides auto-selection
+                                    if (chartRec && chartRec.type && chartRec.x_col && chartRec.y_col) {
+                                        var validTypes = ['bar','hbar','line','area','scatter','pie','donut','histogram','box','stacked_bar','radar'];
+                                        if (validTypes.indexOf(chartRec.type) >= 0) self.chartType = chartRec.type;
+                                        if (srcCols.indexOf(chartRec.x_col) >= 0) self.xCol = chartRec.x_col;
+                                        if (srcCols.indexOf(chartRec.y_col) >= 0) self.yCol = chartRec.y_col;
+                                        if (chartRec.title) self.chartTitle = chartRec.title;
+                                        setTimeout(function() { self.genChart(); }, 50);
+                                    }
+                                } else {
+                                    for (var ri3 = 0; ri3 < tableRows.length; ri3++) {
+                                        if (tableRows[ri3][8] === '加载中...') tableRows[ri3][8] = 'AI 未返回评语';
+                                    }
+                                    this.aiSummary.overview = 'AI 评语格式异常，仅显示统计特征';
+                                    this.aiSummary.table_rows = tableRows;
+                                }
+                            }
+                            if (d.error) { this.aiError = 'AI 分析失败: ' + d.error; }
+                        } catch(e) {}
+                    }
+                }
+            } catch(e) {
+                for (var ri4 = 0; ri4 < tableRows.length; ri4++) {
+                    if (tableRows[ri4][8] === '加载中...') tableRows[ri4][8] = 'AI 调用失败';
+                }
+                this.aiSummary.overview = 'AI 调用失败，仅显示统计特征';
+                this.aiSummary.table_rows = tableRows;
+            }
+            this.aiStreamText = '';
+            this.aiLoading = false;
+
+            // Step 4: AI chart recommendation — primary chart designer
+            console.log('[chart-rec] calling chart-recommend API...');
+            try {
+                var cr = await fetch('/api/projects/' + this.projectId + '/data/chart-recommend', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({columns: srcCols, rows: srcRows, types: srcTypes, total_rows: srcTotal})
+                });
+                console.log('[chart-rec] response status:', cr.status);
+                if (cr.ok) {
+                    var crData = await cr.json();
+                    console.log('[chart-rec] AI recommended:', crData);
+                    if (crData && crData.type && crData.x_col && crData.y_col) {
+                        var validTypes = ['bar','hbar','line','area','scatter','pie','donut','histogram','box','stacked_bar','radar'];
+                        if (validTypes.indexOf(crData.type) >= 0) self.chartType = crData.type;
+                        if (srcCols.indexOf(crData.x_col) >= 0) self.xCol = crData.x_col;
+                        if (srcCols.indexOf(crData.y_col) >= 0) self.yCol = crData.y_col;
+                        if (crData.title) self.chartTitle = crData.title;
+                        self.columns = srcCols.slice();
+                        self.allRows = srcRows.map(function(r) { return r.slice(); });
+                        self.types = Object.assign({}, srcTypes);
+                        self.totalRows = srcTotal;
+                        self.chartImage = '';
+                        self.aiSummary.chart = crData;
+                        console.log('[chart-rec] regenerating chart with AI design:', crData.type, crData.x_col, 'vs', crData.y_col);
+                        setTimeout(function() { self.genChart(); }, 50);
+                    }
+                } else {
+                    var crErr = await cr.text();
+                    console.log('[chart-rec] API error:', cr.status, crErr);
+                }
+            } catch(e) { console.log('[chart-rec] failed:', e); }
+        },
+
+        useAiTableForChart() {
+            var s = this.aiSummary; if (!s || !s.table_rows || !s.table_rows.length) return;
+            // Build chartable data using raw numeric values (not display strings)
+            var rawStats = this._rawStats || {};
+            var cols = ['字段名', '计数', '缺失', '均值', '标准差', '最小值', '最大值'];
+            var rows = [];
+            var self = this;
+            self.columns.forEach(function(col) {
+                var st = rawStats[col];
+                if (!st || st.type === 'empty' || st.type !== 'numeric') return;
+                rows.push([
+                    col,
+                    st.count,
+                    st.missing || 0,
+                    st.mean,
+                    st.std,
+                    st.min,
+                    st.max
+                ]);
+            });
+            if (!rows.length) { this.setStatus('没有可绘图的数值列', 'error'); return; }
+            // All numeric except 字段名
+            var types = {'字段名': 'text'};
+            for (var ci = 1; ci < cols.length; ci++) types[cols[ci]] = 'numeric';
+            this.columns = cols;
+            this.allRows = rows;
+            this.rows = rows;
+            this.types = types;
+            this.totalRows = rows.length;
+            this.chartImage = ''; this.stats = null;
+            this.xCol = '字段名';
+            this.yCol = '均值';
+            this.panelOpen = 'preview';
+            this.setStatus('已加载统计表: ' + rows.length + ' 行, 7 列 (纯数值)', 'info');
+            this.genChart();
+            var chartEl = document.querySelector('.data-right');
+            if (chartEl) chartEl.scrollIntoView({behavior: 'smooth', block: 'start'});
+        },
+    };
+}
+</script>
+{% endblock %}

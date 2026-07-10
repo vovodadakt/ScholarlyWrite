@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}设置 - ScholarlyWrite{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-8">设置</h1>
+
+<div class="max-w-lg" x-data="settingsForm()">
+    <div class="card">
+        <h2 class="text-sm font-semibold tracking-wide mb-6" style="color:var(--muted)">AI 接口配置</h2>
+
+        <form @submit.prevent="save" class="space-y-5">
+            <!-- Provider -->
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">供货商</label>
+                <select x-model="ai_provider" @change="onProviderChange" class="input-field">
+                    <option value="">使用系统默认</option>
+                    <template x-for="p in providers" :key="p.id">
+                        <option :value="p.id" x-text="p.name"></option>
+                    </template>
+                </select>
+            </div>
+
+            <!-- Model -->
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">
+                    模型
+                    <span class="text-xs opacity-70 ml-1">&mdash; 选择供货商后列出可用模型</span>
+                </label>
+                <select x-model="ai_model" class="input-field">
+                    <template x-if="currentPreset && currentPreset.models.length > 0">
+                        <template x-for="m in currentPreset.models" :key="m">
+                            <option :value="m" x-text="m"></option>
+                        </template>
+                    </template>
+                    <template x-if="!currentPreset || currentPreset.models.length === 0">
+                        <option value="">自定义输入</option>
+                    </template>
+                </select>
+                <template x-if="currentPreset && currentPreset.id === 'custom'">
+                    <input type="text" x-model="ai_model" class="input-field mt-2" placeholder="输入模型名称">
+                </template>
+                <template x-if="currentPreset && currentPreset.id === 'ollama'">
+                    <p class="text-xs mt-1" style="color:var(--muted)">
+                        Ollama 本地模型需先用 <code>ollama pull &lt;模型名&gt;</code> 下载
+                    </p>
+                </template>
+            </div>
+
+            <!-- API Key -->
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">API Key</label>
+                <input type="password" x-model="api_key" placeholder="sk-..." class="input-field">
+            </div>
+
+            <!-- API Base URL -->
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">
+                    API 地址
+                    <span class="text-xs opacity-70 ml-1">&mdash; 选择供货商后自动填入</span>
+                </label>
+                <input type="text" x-model="api_base_url" class="input-field"
+                       :placeholder="currentPreset ? currentPreset.base_url : 'https://api.example.com/v1'">
+            </div>
+
+            <div class="pt-2 flex items-center gap-4">
+                <button type="submit" class="btn-primary">保存设置</button>
+                <span x-show="saved" x-cloak class="text-sm" style="color:var(--green)">已保存</span>
+            </div>
+        </form>
+    </div>
+
+    <!-- Font Settings -->
+    <div class="card mt-6">
+        <h2 class="text-sm font-semibold tracking-wide mb-6" style="color:var(--muted)">字体设置</h2>
+        <div class="space-y-5">
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">系统字体（界面用）</label>
+                <select x-model="system_font" class="input-field">
+                    <option value="">思源宋体（默认）</option>
+                    <option value="georgia">Georgia</option>
+                    <option value="times">Times New Roman</option>
+                    <option value="simsun">宋体 SimSun</option>
+                    <option value="system-ui">系统默认 System UI</option>
+                    <option value="inter">Inter（无衬线）</option>
+                    <option value="helvetica">Helvetica Neue</option>
+                    <option value="pingfang">苹方 PingFang SC</option>
+                    <option value="yahei">微软雅黑</option>
+                    <option value="wenkai">霞鹜文楷 LXGW WenKai</option>
+                    <option value="merriweather">Merriweather</option>
+                </select>
+                <p class="text-xs mt-1" style="color:var(--muted)" x-text="fontPreview('system')"></p>
+            </div>
+            <div>
+                <label class="block text-sm mb-2" style="color:var(--muted)">编辑器字体（写作区用）</label>
+                <select x-model="editor_font" class="input-field">
+                    <option value="">Georgia（默认）</option>
+                    <option value="times">Times New Roman</option>
+                    <option value="simsun">宋体 SimSun</option>
+                    <option value="hei">黑体 SimHei</option>
+                    <option value="kai">楷体 KaiTi</option>
+                    <option value="fangsong">仿宋 FangSong</option>
+                    <option value="jetbrains">JetBrains Mono（等宽）</option>
+                    <option value="cascadia">Cascadia Code（等宽）</option>
+                    <option value="firacode">Fira Code（等宽）</option>
+                    <option value="dengxian">等线 DengXian</option>
+                    <option value="notosans">Noto Sans SC</option>
+                </select>
+                <p class="text-xs mt-1" style="color:var(--muted)" x-text="fontPreview('editor')"></p>
+            </div>
+            <div class="pt-1 flex items-center gap-3">
+                <button type="button" @click="applyFonts()" class="btn-secondary text-xs">应用字体</button>
+                <span x-show="fontApplied" x-cloak class="text-xs" style="color:var(--green)">已应用</span>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-xs mt-6" style="color:var(--muted); line-height:1.7">
+        选择字体后点击「应用字体」即时预览，保存设置后永久生效。
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>[x-cloak] { display: none !important; }</style>
+<script>
+function settingsForm() {
+    return {
+        ai_provider: '{{ settings.ai_provider if settings else "" }}',
+        api_key: '{{ settings.api_key if settings else "" }}',
+        api_base_url: '{{ settings.api_base_url if settings else "" }}',
+        ai_model: '{{ settings.ai_model if settings else "" }}',
+        system_font: '{{ settings.system_font if settings else "" }}',
+        editor_font: '{{ settings.editor_font if settings else "" }}',
+        saved: false,
+        fontApplied: false,
+
+        init() {
+            if (this.system_font || this.editor_font) {
+                this.$nextTick(() => { this.applyFonts(); });
+            }
+        },
+
+        fontPreview(type) {
+            const key = type === 'system' ? (this.system_font || '') : (this.editor_font || '');
+            const f = (typeof FONT_MAP !== 'undefined' && FONT_MAP[key]) ? FONT_MAP[key] : {s:'',e:''};
+            let val = type === 'system' ? f.s : f.e;
+            val = val.replace(/'/g, '').replace(/,/g, ', ');
+            return val ? 'ABCabc 中文预览 · ' + val : '';
+        },
+
+        applyFonts() {
+            localStorage.setItem('system_font', this.system_font || '');
+            localStorage.setItem('editor_font', this.editor_font || '');
+            if (typeof applyFontCSS === 'function') {
+                applyFontCSS(this.system_font || '', this.editor_font || '');
+            }
+            this.fontApplied = true;
+            setTimeout(() => { this.fontApplied = false; }, 2000);
+        },
+
+        providers: [
+            {
+                id:'claude', name:'Claude (Anthropic)',
+                base_url:'https://api.anthropic.com',
+                models:['claude-opus-4-7','claude-opus-4-6','claude-sonnet-4-6','claude-haiku-4-5-20251001','claude-opus-4-5-20251101','claude-sonnet-4-5-20250929','claude-opus-4-1-20250805','claude-opus-4-20250514','claude-sonnet-4-20250514']
+            },
+            {
+                id:'openai', name:'OpenAI',
+                base_url:'https://api.openai.com/v1',
+                models:['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-5.1','o4-mini','o3','o3-mini','gpt-4.1','gpt-4.1-mini']
+            },
+            {
+                id:'deepseek', name:'DeepSeek',
+                base_url:'https://api.deepseek.com',
+                models:['deepseek-v4-pro','deepseek-v4-flash','deepseek-v3.2','deepseek-v3.1-terminus','deepseek-chat','deepseek-reasoner']
+            },
+            {
+                id:'openrouter', name:'OpenRouter',
+                base_url:'https://openrouter.ai/api/v1',
+                models:['anthropic/claude-sonnet-4-6','anthropic/claude-opus-4-7','openai/gpt-5.4','openai/o4-mini','deepseek/deepseek-v4-pro','deepseek/deepseek-reasoner','google/gemini-3-flash','qwen/qwen3-235b-a22b']
+            },
+            {
+                id:'zhipu', name:'智谱 GLM',
+                base_url:'https://open.bigmodel.cn/api/paas/v4',
+                models:['glm-5.1','glm-5','glm-4.7','glm-4.6','glm-4.5','glm-z1-airx','glm-z1-air','glm-z1-flash']
+            },
+            {
+                id:'moonshot', name:'Moonshot Kimi',
+                base_url:'https://api.moonshot.cn/v1',
+                models:['kimi-k2.6','kimi-k2.5','moonshot-v1-auto','moonshot-v1-8k','moonshot-v1-32k','moonshot-v1-128k']
+            },
+            {
+                id:'qwen', name:'通义千问 (阿里)',
+                base_url:'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                models:['qwen3.6-max-preview','qwen3.6-plus','qwen3.6-flash','qwen3-max','qwen-plus','qwen3-coder-plus','qwen-turbo']
+            },
+            {
+                id:'groq', name:'Groq',
+                base_url:'https://api.groq.com/openai/v1',
+                models:['meta-llama/llama-4-maverick-17b-128e-instruct','meta-llama/llama-4-scout-17b-16e-instruct','llama-3.3-70b-versatile','deepseek-r1-distill-llama-70b','qwen-2.5-coder-32b','qwen-qwq-32b','llama-3.1-8b-instant']
+            },
+            {
+                id:'ollama', name:'Ollama (本地)',
+                base_url:'http://localhost:11434/v1',
+                models:['llama3','mistral','phi3','gemma3','qwen3']
+            },
+            {
+                id:'custom', name:'自定义',
+                base_url:'', models:[]
+            },
+        ],
+
+        get currentPreset() {
+            return this.providers.find(p => p.id === this.ai_provider) || null;
+        },
+
+        onProviderChange() {
+            const p = this.currentPreset;
+            if (!p) { this.ai_model = ''; this.api_base_url = ''; return; }
+            // Auto-fill base URL
+            if (p.base_url) this.api_base_url = p.base_url;
+            // Auto-select first model
+            if (p.models && p.models.length > 0) {
+                this.ai_model = p.models[0];
+            } else if (p.id === 'custom') {
+                this.ai_model = '';
+            }
+        },
+
+        async save() {
+            const resp = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    ai_provider: this.ai_provider,
+                    api_key: this.api_key,
+                    api_base_url: this.api_base_url,
+                    ai_model: this.ai_model,
+                    system_font: this.system_font,
+                    editor_font: this.editor_font,
+                })
+            });
+            if (resp.ok) {
+                this.applyFonts();
+                this.saved = true;
+                setTimeout(() => { this.saved = false; }, 2500);
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

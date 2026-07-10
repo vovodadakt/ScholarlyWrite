@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ScholarlyWrite{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap">
+    <script>
+    // Must run BEFORE body renders to prevent flash of wrong theme
+    (function() {
+        var m = localStorage.getItem('theme_mode');
+        var t = (m === 'dark' || m === 'light') ? m : (
+            window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        );
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
+    <style>
+        :root {
+            --bg: #faf8f3;
+            --card: #ffffff;
+            --text: #2c2416;
+            --muted: #8c8478;
+            --border: #d4cec4;
+            --accent: #4a6b8a;
+            --accent-hover: #3a5670;
+            --green: #5d7a5a;
+            --red: #a05252;
+            --input-bg: #fefdfb;
+            --hover-row: #f5f2eb;
+            --focus-ring: rgba(74,107,138,0.12);
+            --error-bg: #fdf5f5;
+            --error-border: #e8c8c8;
+            --error-text: #a05252;
+            --font-system: 'Noto Serif SC', 'Noto Serif', Georgia, 'Times New Roman', serif;
+            --font-editor: Georgia, 'Times New Roman', 'Noto Serif SC', serif;
+        }
+        [data-theme="dark"] {
+            --bg: #1c1a16;
+            --card: #262320;
+            --text: #e0d8cc;
+            --muted: #8c8278;
+            --border: #3d3830;
+            --accent: #6b95b5;
+            --accent-hover: #7ba8c8;
+            --green: #6d8a6a;
+            --red: #c06868;
+            --input-bg: #1e1c18;
+            --hover-row: #2a2722;
+            --focus-ring: rgba(107,149,181,0.15);
+            --error-bg: #2a1f1f;
+            --error-border: #5a3030;
+            --error-text: #c06868;
+        }
+        body {
+            font-family: var(--font-system);
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .font-editor {
+            font-family: var(--font-editor) !important;
+        }
+        .btn-primary {
+            background-color: var(--accent);
+            color: #fff;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-secondary:hover { background-color: var(--accent); color: #fff; }
+        .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-danger {
+            background-color: transparent;
+            color: var(--red);
+            border: 1px solid var(--red);
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-danger:hover { background-color: var(--red); color: #fff; }
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border);
+            background-color: var(--input-bg);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.875rem;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--focus-ring);
+        }
+        textarea.input-field { resize: vertical; line-height: 1.6; }
+        select.input-field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238c8478' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; padding-right: 2rem; }
+        .nav-link {
+            color: var(--muted);
+            font-size: 0.8125rem;
+            transition: color 0.15s;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .nav-link:hover { color: var(--text); }
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            width: 2rem; height: 2rem;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .theme-toggle:hover { color: var(--text); border-color: var(--text); }
+        .status-tag {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen">
+    {% if current_user %}
+    <nav class="border-b" style="background:var(--card); border-color:var(--border)">
+        <div class="mx-auto px-6 py-3 flex items-center justify-between" style="max-width:96vw">
+            <a href="/projects" class="text-sm font-semibold tracking-wide" style="color:var(--text); text-decoration:none;">
+                ScholarlyWrite
+            </a>
+            <div class="flex items-center gap-5">
+                <a href="/projects" class="nav-link">主页</a>
+                <a href="/templates" class="btn-primary" style="font-size:0.75rem; padding:0.25rem 0.75rem; text-decoration:none;">+ 新建</a>
+                <a href="/templates" class="nav-link">模板</a>
+                <a href="/search" class="nav-link">搜索</a>
+                <a href="/about" class="nav-link">关于</a>
+                <button class="theme-toggle" onclick="toggleTheme()" title="切换主题模式">
+                    <span id="theme-icon">&#9790;</span>
+                </button>
+                <span class="text-xs" style="color:var(--muted)">{{ current_user.display_name }}</span>
+                <a href="/auth/logout" class="nav-link" style="color:var(--red)">退出</a>
+            </div>
+        </div>
+    </nav>
+    {% else %}
+    <nav class="border-b" style="background:var(--card); border-color:var(--border)">
+        <div class="mx-auto px-6 py-3 flex items-center justify-between" style="max-width:96vw">
+            <a href="/" class="text-sm font-semibold tracking-wide" style="color:var(--text); text-decoration:none;">
+                ScholarlyWrite
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="/about" class="nav-link">关于</a>
+                <button class="theme-toggle" onclick="toggleTheme()" title="切换主题模式">
+                    <span id="theme-icon">&#9790;</span>
+                </button>
+                <a href="/auth/login" class="btn-secondary" style="font-size:0.8125rem; padding:0.375rem 1rem; text-decoration:none;">登录</a>
+                <a href="/auth/register" class="btn-primary" style="font-size:0.8125rem; padding:0.375rem 1rem; text-decoration:none;">注册</a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="max-w-4xl mx-auto px-6 py-10">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+
+    <script>
+    // data-theme was already set by the head script; just resolve the user's mode.
+    var THEME_MODE = localStorage.getItem('theme_mode') || 'auto';
+
+    function resolveTheme(mode) {
+        if (mode === 'auto') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return mode;
+    }
+
+    function applyTheme(mode) {
+        document.documentElement.setAttribute('data-theme', resolveTheme(mode));
+        updateIcon(mode);
+    }
+
+    function updateIcon(mode) {
+        var icon = document.getElementById('theme-icon');
+        if (!icon) return;
+        var visualTheme = resolveTheme(mode);
+        if (mode === 'auto') {
+            icon.innerHTML = '&#9681;';       // ◉
+            icon.title = visualTheme === 'dark' ? '跟随系统 (当前深色)' : '跟随系统 (当前浅色)';
+        } else if (visualTheme === 'dark') {
+            icon.innerHTML = '&#9788;';       // ☀
+            icon.title = '深色模式';
+        } else {
+            icon.innerHTML = '&#9790;';       // ☾
+            icon.title = '浅色模式';
+        }
+    }
+
+    (function() {
+        updateIcon(THEME_MODE);
+        loadFonts();
+    })();
+
+    function toggleTheme() {
+        if (THEME_MODE === 'light') {
+            THEME_MODE = 'dark';
+        } else if (THEME_MODE === 'dark') {
+            THEME_MODE = 'auto';
+        } else {
+            THEME_MODE = 'light';
+        }
+        if (THEME_MODE === 'auto') {
+            localStorage.removeItem('theme_mode');
+        } else {
+            localStorage.setItem('theme_mode', THEME_MODE);
+        }
+        applyTheme(THEME_MODE);
+    }
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (THEME_MODE === 'auto') {
+            document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+            updateIcon('auto');
+        }
+    });
+
+    var FONT_MAP = {
+        '': { s: "'Noto Serif SC','Noto Serif',Georgia,serif", e: "Georgia,'Times New Roman','Noto Serif SC',serif" },
+        'georgia': { s: "Georgia,'Times New Roman',serif", e: "Georgia,serif" },
+        'times': { s: "'Times New Roman',Times,Georgia,serif", e: "'Times New Roman',Times,serif" },
+        'simsun': { s: "'SimSun','宋体','Noto Serif SC',serif", e: "'SimSun','宋体',serif" },
+        'system-ui': { s: "system-ui,-apple-system,'Segoe UI','PingFang SC',sans-serif", e: "Georgia,'Times New Roman',serif" },
+        'inter': { s: "'Inter','Helvetica Neue',Arial,'PingFang SC',sans-serif", e: "Georgia,'Times New Roman',serif" },
+        'helvetica': { s: "'Helvetica Neue',Helvetica,Arial,'PingFang SC',sans-serif", e: "'Helvetica Neue',Arial,sans-serif" },
+        'pingfang': { s: "'PingFang SC','苹方','Noto Sans SC',sans-serif", e: "Georgia,'Times New Roman',serif" },
+        'yahei': { s: "'Microsoft YaHei','微软雅黑','PingFang SC',sans-serif", e: "Georgia,'Times New Roman',serif" },
+        'wenkai': { s: "'LXGW WenKai','霞鹜文楷','KaiTi',serif", e: "'LXGW WenKai','KaiTi',serif" },
+        'merriweather': { s: "'Merriweather',Georgia,'Noto Serif SC',serif", e: "'Merriweather',Georgia,serif" },
+        'hei': { s: "'Noto Serif SC',Georgia,serif", e: "'SimHei','黑体','PingFang SC',sans-serif" },
+        'kai': { s: "'Noto Serif SC',Georgia,serif", e: "'KaiTi','STKaiti','楷体',serif" },
+        'fangsong': { s: "'Noto Serif SC',Georgia,serif", e: "'FangSong','仿宋','STFangsong',serif" },
+        'jetbrains': { s: "'Noto Serif SC',Georgia,serif", e: "'JetBrains Mono','Cascadia Code','SF Mono',monospace" },
+        'cascadia': { s: "'Noto Serif SC',Georgia,serif", e: "'Cascadia Code','JetBrains Mono','Fira Code',monospace" },
+        'firacode': { s: "'Noto Serif SC',Georgia,serif", e: "'Fira Code','JetBrains Mono','Cascadia Code',monospace" },
+        'dengxian': { s: "'Noto Serif SC',Georgia,serif", e: "'DengXian','等线','PingFang SC',sans-serif" },
+        'notosans': { s: "'Noto Serif SC',Georgia,serif", e: "'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" },
+    };
+
+    function applyFontCSS(sf, ef) {
+        var fm = FONT_MAP[sf] || FONT_MAP[''];
+        var em = FONT_MAP[ef] || FONT_MAP[''];
+        document.documentElement.style.setProperty('--font-system', fm.s);
+        document.documentElement.style.setProperty('--font-editor', em.e);
+    }
+
+    function loadFonts() {
+        var sf = localStorage.getItem('system_font');
+        var ef = localStorage.getItem('editor_font');
+        if (sf || ef) applyFontCSS(sf || '', ef || '');
+    }
+    </script>
+</body>
+</html>

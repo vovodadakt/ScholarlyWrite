@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}LaTeX - {{ project.title }} - ScholarlyWrite{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<style>
+main.max-w-4xl { max-width:100%!important; padding:0!important; }
+.latex-wrap { height:calc(100vh - 64px); display:flex; flex-direction:column; }
+.latex-toolbar { padding:10px 20px; display:flex; align-items:center; gap:8px; flex-shrink:0; border-bottom:1px solid var(--border); background:var(--card); }
+.CodeMirror { height:100%!important; background:var(--card)!important; color:var(--text)!important; font-size:14px!important; line-height:1.6!important; }
+.CodeMirror-gutters { background:var(--bg)!important; border-color:var(--border)!important; }
+.CodeMirror-linenumber { color:var(--muted)!important; }
+.CodeMirror-cursor { border-left-color:var(--accent)!important; }
+.CodeMirror-selected { background:var(--focus-ring)!important; }
+.flex-1 { flex:1; }
+.preview-pane { flex:1; min-width:0; display:flex; flex-direction:column; background:#323639; }
+.preview-pane .preview-head { padding:8px 16px; font-size:0.8125rem; flex-shrink:0; display:flex; align-items:center; gap:8px; border-bottom:1px solid #444; background:#2a2d2f; color:#ccc; }
+.preview-placeholder { flex:1; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:0.875rem; flex-direction:column; gap:10px; }
+[x-cloak] { display:none!important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="latexApp('{{ project.id }}')" x-cloak class="latex-wrap">
+    <div class="latex-toolbar">
+        <a href="/projects/{{ project.id }}" class="btn-secondary text-xs" style="text-decoration:none;">← 回到写作</a>
+        <span class="flex-1"></span>
+        <button @click="downloadTex()" class="btn-secondary text-xs">下载 .tex</button>
+        <a href="/api/projects/{{ project.id }}/export/pdf" class="btn-secondary text-xs" style="text-decoration:none;">直接导出 PDF</a>
+        <button @click="compilePDF()" class="btn-primary text-xs" :disabled="compiling">
+            <span x-show="!compiling">LaTeX 编译预览</span>
+            <span x-show="compiling">编译中...</span>
+        </button>
+    </div>
+
+    <!-- Editor panel (default visible) -->
+    <div x-show="viewMode==='editor'" style="flex:1; min-height:0; overflow:hidden;">
+        <div id="latex-editor" style="height:100%;"></div>
+    </div>
+
+    <!-- PDF preview panel (default hidden) -->
+    <div x-show="viewMode==='pdf'" class="preview-pane" style="display:none;">
+        <div class="preview-head">
+            <span style="color:var(--text); font-weight:500;">PDF 预览</span>
+            <span x-show="compileMsg" x-text="compileMsg" style="color:var(--accent);"></span>
+            <span class="flex-1"></span>
+            <button @click="viewMode='editor'" class="btn-secondary text-xs">← 返回编辑</button>
+            <button @click="downloadPDF()" class="btn-primary text-xs">下载 PDF</button>
+        </div>
+        <embed x-show="pdfUrl" :src="pdfUrl" type="application/pdf" style="flex:1;min-height:0;border:none;width:100%;">
+        <div x-show="!pdfUrl" class="preview-placeholder">
+            <span>点击「LaTeX 编译预览」生成 PDF</span>
+            <span style="font-size:0.75rem;">如果未安装 LaTeX 编译器，请使用「直接导出 PDF」</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/stex/stex.min.js"></script>
+<script>
+var cmInstance = null;
+
+function createCM() {
+    var el = document.getElementById('latex-editor');
+    if (!el) return;
+    if (cmInstance) return;
+    cmInstance = CodeMirror(el, {
+        value: {{ tex_source | tojson | safe }},
+        mode: 'stex',
+        lineNumbers: true,
+        lineWrapping: true,
+        tabSize: 2,
+    });
+}
+
+function latexApp(projectId) {
+    return {
+        viewMode: 'editor',
+        compiling: false,
+        compileMsg: '',
+        pdfUrl: '',
+        pdfBlob: null,
+
+        init() {
+            var self = this;
+            // Wait for DOM to settle then init CodeMirror
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    createCM();
+                });
+            });
+            // Refresh CodeMirror when switching back to editor
+            this.$watch('viewMode', function(val) {
+                if (val === 'editor' && cmInstance) {
+                    requestAnimationFrame(function() {
+                        cmInstance.refresh();
+                    });
+                }
+            });
+        },
+
+        getSource() {
+            return cmInstance ? cmInstance.getValue() : '';
+        },
+
+        downloadTex() {
+            var blob = new Blob([this.getSource()], {type:'application/x-tex'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = {{ (project.title or 'paper')[:30] | tojson | safe }} + '.tex';
+            a.click();
+        },
+
+        async compilePDF() {
+            this.compiling = true;
+            this.compileMsg = '正在编译...';
+            try {
+                var resp = await fetch('/api/projects/' + projectId + '/latex/compile', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({source: this.getSource()})
+                });
+                if (resp.ok) {
+                    this.pdfBlob = await resp.blob();
+                    if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
+                    this.pdfUrl = URL.createObjectURL(this.pdfBlob);
+                    this.compileMsg = '';
+                    this.viewMode = 'pdf';
+                } else {
+                    var err = await resp.json();
+                    this.compileMsg = err.detail || '编译失败';
+                }
+            } catch(e) {
+                this.compileMsg = '编译失败，请使用「直接导出 PDF」按钮';
+            }
+            this.compiling = false;
+        },
+
+        downloadPDF() {
+            if (!this.pdfBlob) return;
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(this.pdfBlob);
+            a.download = {{ (project.title or 'paper')[:30] | tojson | safe }} + '.pdf';
+            a.click();
+        }
+    }
+}
+</script>
+{% endblock %}
